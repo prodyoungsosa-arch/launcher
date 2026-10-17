@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https: annmedia: blob:; media-src 'self' https: annmedia: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'none'; object-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Malvinas 1982 Launcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Fondo con Rejilla Tecnológica y Brillo -->
+<div class="bg-grid-fx" aria-hidden="true">
+  <div class="grid-layer"></div>
+  <div class="glow-layer"></div>
+</div>
+
+<!-- Iconos (sprite completo) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2z"/><path d="M12 6.5v13"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6"/><path d="M18 14.3c2 .8 3.5 2.6 3.5 5.7"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8 7.5 9.5 4.4-1.5 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.3 2.3L15.5 10"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15.5" r="1.3"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+    <symbol id="i-shopping" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v14"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4 10.5 13.5"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></symbol>
+    <symbol id="i-min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+    <symbol id="i-max" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+    <symbol id="i-signal" viewBox="0 0 24 24"><path d="M5 19v-3"/><path d="M10 19v-7"/><path d="M15 19V8"/><path d="M20 19V4"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5s1.2-6.1 3.6-8.5z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9.5h7"/><path d="M8.5 12.5h4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><path d="M12 8v.5"/></symbol>
+  </defs>
+</svg>
+
+<!-- Pantalla de carga -->
+<div id="splash">
+  <div class="splash-inner">
+    <img class="splash-icon" data-icon src="../assets/icon.png" alt="">
+    <div class="splash-title" id="splashTitle">MALVINAS 1982</div>
+    <div class="splash-bar"><i></i></div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="flagline"></div>
+
+  <!-- BARRA LATERAL -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon" id="brandIcon">
+        <img data-icon src="../assets/icon.png" alt="">
+      </div>
+      <div class="brand-text">
+        <b id="brandName">MALVINAS 1982</b>
+        <small>DAYZ · LAUNCHER</small>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-btn active" data-view="home"><svg class="i"><use href="#i-home"/></svg><span>Inicio</span></button>
+      <button class="nav-btn" data-view="store"><svg class="i"><use href="#i-shopping"/></svg><span>Tienda VIP</span></button>
+      <button class="nav-btn" data-view="tickets"><svg class="i"><use href="#i-ticket"/></svg><span>Soporte / Tickets</span></button>
+      <button class="nav-btn" data-view="profile"><svg class="i"><use href="#i-user"/></svg><span>Mi Perfil</span></button>
+      <button class="nav-btn" data-view="rules"><svg class="i"><use href="#i-book"/></svg><span>Reglamento</span></button>
+      <button class="nav-btn" data-view="community"><svg class="i"><use href="#i-users"/></svg><span>Comunidad</span></button>
+      <button class="nav-btn" data-view="settings"><svg class="i"><use href="#i-sliders"/></svg><span>Ajustes</span></button>
+      <button class="nav-btn" data-view="news"><svg class="i"><use href="#i-book"/></svg><span>Anuncios</span></button>
+    </nav>
+
+    <div class="side-bottom">
+      <div class="user-profile-box" id="userBox">
+        <div class="user-info" id="userInfoDisplay">
+          <span class="user-guest">No conectado</span>
+        </div>
+        <button class="btn-sm-auth" id="authModalBtn">Perfil</button>
+      </div>
+
+      <div class="side-status" id="sideStatus"><i class="dot"></i><span>Consultando…</span></div>
+      <div class="side-ver" id="appVer">v2.1.0 Pro</div>
+    </div>
+  </aside>
+
+  <!-- CONTENIDO -->
+  <main class="main">
+    <header class="titlebar">
+      <div class="winctl">
+        <button id="btnMin" title="Minimizar"><svg class="i"><use href="#i-min"/></svg></button>
+        <button id="btnMax" title="Maximizar / Restaurar"><svg class="i"><use href="#i-max"/></svg></button>
+        <button id="btnClose" class="close" title="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+      </div>
+    </header>
+
+    <!-- INICIO -->
+    <section class="view active" id="view-home">
+      <div class="hero" id="hero">
+        <div class="slides" id="slides"></div>
+        <div class="hero-empty"><img data-icon src="../assets/icon.png" alt=""></div>
+        <div class="hero-shade"></div>
+      </div>
+
+      <div class="home-grid">
+        <div class="home-left">
+          <div class="eyebrow">
+            <span class="chip">DAYZ</span>
+            <span id="mapName">Chernarus+</span>
+            <i class="sep"></i>
+            <span>Servidor de supervivencia táctica</span>
+          </div>
+          <h1 class="title">
+            <span id="titleMain">MALVINAS</span>
+            <div class="year-row">
+              <b id="titleYear">1982</b>
+              <div class="mini-flag">
+                <div class="stripe sky"></div>
+                <div class="stripe white"><div class="sun-center"></div></div>
+                <div class="stripe sky"></div>
+              </div>
+            </div>
+          </h1>
+          <p class="tagline" id="tagline">La experiencia definitiva de supervivencia extrema en territorio nacional e insular.</p>
+
+          <div class="actions">
+            <button class="btn-play" id="playBtn">
+              <svg class="i"><use href="#i-play"/></svg>
+              <span id="playLabel">JUGAR AHORA</span>
+            </button>
+            <button class="btn-discord" id="discordBtn">
+              <svg class="i" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              <span>Discord</span>
+            </button>
+            <button class="btn-ghost" id="copyIpBtn"><svg class="i"><use href="#i-copy"/></svg><span>Copiar IP</span></button>
+          </div>
+          <div class="play-hint" id="playHint"></div>
+        </div>
+
+        <aside class="home-right">
+          <div class="card status">
+            <div class="status-head">
+              <span class="pill wait" id="statusPill"><i class="pulse"></i><span id="statusText">CONSULTANDO</span></span>
+              <span class="muted small" id="statusAge"></span>
+            </div>
+            <div class="players">
+              <span class="num" id="plNum">--</span>
+              <span class="max">/ <span id="plMax">--</span></span>
+            </div>
+            <div class="players-label">sobrevivientes en línea</div>
+            <div class="bar"><i id="plBar"></i></div>
+            <dl class="meta">
+              <div><dt><svg class="i"><use href="#i-pin"/></svg>Mapa</dt><dd id="metaMap">—</dd></div>
+              <div><dt><svg class="i"><use href="#i-signal"/></svg>Ping</dt><dd id="metaPing">—</dd></div>
+              <div><dt><svg class="i"><use href="#i-globe"/></svg>IP</dt><dd id="metaIp">—</dd></div>
+            </dl>
+          </div>
+
+          <div class="card news" id="newsCard">
+            <div class="card-title">NOVEDADES</div>
+            <div id="newsList"></div>
+          </div>
+
+          <div class="slide-ctl" id="slideCtl">
+            <button class="circle" id="slidePrev" title="Anterior"><svg class="i"><use href="#i-left"/></svg></button>
+            <button class="circle" id="slideNext" title="Siguiente"><svg class="i"><use href="#i-right"/></svg></button>
+            <span class="slide-count" id="slideCount">01 / 01</span>
+            <div class="slide-prog"><i id="slideProg"></i></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- TIENDA VIP Y PACKS -->
+    <section class="view" id="view-store">
+      <div class="view-bg"></div>
+      <header class="view-head">
+        <div class="head-icon"><svg class="i" style="width:24px;height:24px;color:var(--accent);"><use href="#i-shopping"/></svg></div>
+        <div>
+          <h2>Tienda VIP y Packs</h2>
+          <p>Adquirí paquetes de equipamiento y membresías VIP vía PayPal (amarootm@gmail.com).</p>
+        </div>
+      </header>
+      <div class="store-container">
+        <div class="store-toolbar">
+          <button type="button" class="btn-primary" id="openAddPackModal" style="display:none;">＋ Crear / Agregar Pack</button>
+        </div>
+        <div class="store-grid" id="storeGrid">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SOPORTE / TICKETS -->
+    <section class="view" id="view-tickets">
+      <div class="view-bg"></div>
+      <header class="view-head">
+        <div class="head-icon"><svg class="i" style="width:24px;height:24px;color:var(--accent);"><use href="#i-ticket"/></svg></div>
+        <div>
+          <h2>Centro de Tickets y Soporte</h2>
+          <p>Máximo 3 tickets abiertos simultáneos. Chateá con el staff y enviá archivos locales.</p>
+        </div>
+      </header>
+      <div class="tickets-container">
+        <div class="tickets-toolbar">
+          <button type="button" class="btn-primary" id="openNewTicketModal">＋ Nuevo Ticket</button>
+        </div>
+        <div class="tickets-list" id="ticketsList">
+          <!-- Tickets dinámicos -->
+        </div>
+      </div>
+    </section>
+
+    <!-- MI PERFIL -->
+    <section class="view" id="view-profile">
+      <div class="view-bg"></div>
+      <header class="view-head">
+        <div class="head-icon"><svg class="i" style="width:24px;height:24px;color:var(--accent);"><use href="#i-user"/></svg></div>
+        <div>
+          <h2>Perfil de Sobreviviente</h2>
+          <p>Personaliza tu avatar desde tu PC, apodo y credenciales.</p>
+        </div>
+      </header>
+      <div class="profile-container">
+        <div class="card pad profile-card-box">
+          <div class="profile-avatar-section">
+            <div class="profile-avatar-preview" id="profileAvatarPreview">
+              <span id="profileAvatarInitial">M</span>
+            </div>
+            <div class="profile-avatar-inputs">
+              <label>Avatar local (Imagen desde PC)</label>
+              <input class="input" id="profileAvatarFile" type="file" accept="image/*">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Nombre de Usuario (Estático / Único)</label>
+            <input class="input" id="profileUsername" disabled style="opacity:0.7;">
+          </div>
+          <div class="form-row">
+            <label>Apodo en el Servidor (Puedes cambiarlo 1 sola vez)</label>
+            <input class="input" id="profileDisplayName" placeholder="Tu apodo público">
+          </div>
+          <div class="form-row" id="passwordChangeBox">
+            <label>Contraseña actual (Requerida solo para cambiar tu apodo)</label>
+            <input class="input" id="profileCurrentPassword" type="password" placeholder="••••••••">
+          </div>
+          <div style="margin-top: 16px;">
+            <button type="button" class="btn-primary" id="saveProfileBtn">Guardar Cambios de Perfil</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REGLAMENTO -->
+    <section class="view" id="view-rules">
+      <div class="view-bg"></div>
+      <header class="view-head">
+        <div class="head-icon"><img data-icon src="../assets/icon.png" alt=""></div>
+        <div>
+          <h2>Reglamento</h2>
+          <p>Leelas antes de entrar. Jugar acá implica aceptarlas.</p>
+        </div>
+      </header>
+      <div class="rules-scroll">
+        <div class="rules-grid" id="rulesGrid"></div>
+        <div class="card note" id="rulesNote"></div>
+      </div>
+    </section>
+
+    <!-- COMUNIDAD -->
+    <section class="view" id="view-community">
+      <div class="view-bg"></div>
+      <header class="view-head">
+        <div class="head-icon"><img data-icon src="../assets/icon.png" alt=""></div>
+        <div>
+          <h2>Comunidad</h2>
+          <p>Soporte, tickets y novedades en un solo lugar.</p>
+        </div>
+      </header>
+      <div class="comm">
+        <div class="card discord-card" style="background-image: url('../assets/icon.png'); background-size: cover; background-position: center;">
+          <div class="discord-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.65);"></div>
+          <img class="discord-mark" data-icon src="../assets/icon.png" alt="" style="z-index:1;">
+          <div class="discord-body" style="z-index:1;">
+            <span class="chip">DISCORD OFICIAL</span>
+            <h3>Sumate a la comunidad</h3>
+            <p>Abrí tickets, hacé reportes y encontrá gente para jugar.</p>
+            <button class="btn-primary" id="commDiscord"><svg class="i"><use href="#i-chat"/></svg><span>Unirme al Discord</span></button>
+          </div>
+        </div>
+
+        <div class="card conn-card">
+          <div class="card-title">CONEXIÓN</div>
+          <div class="field">
+            <div class="f-body"><small>Conexión directa</small><span id="fJoin">—</span></div>
+            <button class="icon-btn" id="fJoinCopy" title="Copiar"><svg class="i"><use href="#i-copy"/></svg></button>
+            <button class="icon-btn" id="fJoinOpen" title="Abrir"><svg class="i"><use href="#i-external"/></svg></button>
+          </div>
+          <div class="field">
+            <div class="f-body"><small>IP del servidor</small><span id="fIp">—</span></div>
+            <button class="icon-btn" id="fIpCopy" title="Copiar"><svg class="i"><use href="#i-copy"/></svg></button>
+          </div>
+          <div class="field">
+            <div class="f-body"><small>Mapa</small><span id="fMap">—</span></div>
+          </div>
+        </div>
+
+        <div class="card tip-card">
+          <svg class="i tip-ico"><use href="#i-info"/></svg>
+          <p id="tipText"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="view" id="view-settings">
+      <div class="view-bg"></div>
+      <header class="view-head">
+        <div class="head-icon"><img data-icon src="../assets/icon.png" alt=""></div>
+        <div>
+          <h2>Ajustes</h2>
+          <p>Configuración del launcher y preferencias.</p>
+        </div>
+      </header>
+      <div class="settings">
+        <div class="card pad">
+          <div class="card-title">APARIENCIA</div>
+          <div class="form-row inline">
+            <div>
+              <label>Modo Claro / Oscuro</label>
+              <small class="muted">Alternar entre tema oscuro y claro.</small>
+            </div>
+            <label class="switch"><input type="checkbox" id="setThemeToggle"><i></i></label>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-title">MODO DE INICIO</div>
+          <div class="mode-grid">
+            <label class="mode">
+              <input type="radio" name="mode" value="dzsa">
+              <span class="mode-body">
+                <b>Acceso directo del servidor</b>
+                <small>Abre la conexión directa. Recomendado.</small>
+              </span>
+              <svg class="i tick"><use href="#i-check"/></svg>
+            </label>
+            <label class="mode">
+              <input type="radio" name="mode" value="steam">
+              <span class="mode-body">
+                <b>DayZ desde Steam</b>
+                <small>Inicia directo por Steam con mods instalados.</small>
+              </span>
+              <svg class="i tick"><use href="#i-check"/></svg>
+            </label>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <div class="card-title">JUGADOR Y SISTEMA</div>
+          <div class="form-row">
+            <label for="setName">Nombre en el juego</label>
+            <input class="input" id="setName" maxlength="32" placeholder="Opcional" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="setParams">Parámetros extra (Steam)</label>
+            <input class="input" id="setParams" maxlength="240" placeholder="-skipIntro -window" autocomplete="off">
+          </div>
+          <div class="form-row inline">
+            <div>
+              <label>Minimizar al jugar</label>
+              <small class="muted">Oculta el launcher al iniciar.</small>
+            </div>
+            <label class="switch"><input type="checkbox" id="setMin"><i></i></label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANUNCIOS -->
+    <section class="view" id="view-news">
+      <div class="view-bg feed-bg"></div>
+      <header class="view-head feed-head">
+        <div class="head-icon"><img data-icon src="../assets/icon.png" alt=""></div>
+        <div>
+          <h2>Feed del servidor</h2>
+          <p>Anuncios, actualizaciones y charla de la comunidad.</p>
+        </div>
+      </header>
+      <div class="news-container feed-container">
+        <div class="news-action-bar feed-toolbar" id="newsActionBar" hidden>
+          <button type="button" class="btn-primary" id="openPostModalBtn">
+            <span>＋ Crear publicación</span>
+          </button>
+        </div>
+        <div class="announcements-grid feed-list" id="announcementsGrid">
+          <!-- Cargado dinámicamente -->
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Modal para Crear/Modificar Pack de Tienda -->
+<div class="modal" id="packModal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="packModalTitle">Gestionar Pack VIP</h3>
+      <button type="button" class="icon-btn" id="closePackModal"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="packEditId">
+      <div class="form-row">
+        <label>Nombre del Pack</label>
+        <input class="input" id="packNameInput" placeholder="Ej: Pack Militar Táctico">
+      </div>
+      <div class="form-row">
+        <label>Descripción</label>
+        <textarea class="input" id="packDescInput" rows="3" placeholder="Incluye fusil, chaleco nivel 3..."></textarea>
+      </div>
+      <div class="form-row">
+        <label>Precio (USD)</label>
+        <input class="input" id="packPriceInput" type="number" step="0.5" placeholder="9.99">
+      </div>
+      <div class="form-row">
+        <label>Icono SVG</label>
+        <select class="input" id="packIconSelect">
+          <option value="shield">Escudo Táctico</option>
+          <option value="shopping">Suministros</option>
+          <option value="star">Estrella VIP</option>
+          <option value="lock">Arsenal Seguro</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-primary" id="savePackBtn">Guardar Pack</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para Nuevo Ticket -->
+<div class="modal" id="ticketModal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Abrir Nuevo Ticket de Soporte</h3>
+      <button type="button" class="icon-btn" id="closeTicketModal"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Asunto o Motivo</label>
+        <input class="input" id="ticketSubject" placeholder="Ej: Problema con donación o bug">
+      </div>
+      <div class="form-row">
+        <label>Descripción detallada</label>
+        <textarea class="input" id="ticketMessage" rows="4" placeholder="Explica tu situación al staff..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-primary" id="submitTicketBtn">Enviar Ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Chat de Ticket (Staff / Usuario) -->
+<div class="modal" id="ticketChatModal" hidden>
+  <div class="modal-box" style="width:min(600px, 95%); height:80vh; display:flex; flex-direction:column;">
+    <div class="modal-head">
+      <h3 id="chatModalTitle">Chat de Ticket #0</h3>
+      <button type="button" class="icon-btn" id="closeChatModal"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body" id="chatMessagesContainer" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:12px;">
+      <!-- Mensajes cargados dinámicamente -->
+    </div>
+    <div class="modal-foot" style="display:flex; gap:8px; align-items:center;">
+      <input type="file" id="chatMediaFile" style="display:none;" accept="image/*,video/*,.zip,.rar">
+      <button type="button" class="btn-ghost" id="attachMediaBtn" title="Adjuntar archivo/imagen/video">📎</button>
+      <input class="input" id="chatInputMessage" placeholder="Escribe un mensaje..." style="flex:1;">
+      <button type="button" class="btn-primary" id="sendChatMessageBtn">Enviar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>

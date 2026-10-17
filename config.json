@@ -1,0 +1,51 @@
+{
+  "server": {
+    "name": "Malvinas 1982",
+    "tagline": "Las Malvinas son argentinas.",
+    "map": "Chernarus+",
+    "ip": "188.255.171.160",
+    "gamePort": 2302,
+    "queryPort": 27016,
+    "joinUrl": "https://join.dayzsalauncher.com/188.255.171.160:2302",
+    "discordUrl": "https://discord.gg/zpmf7HzYT",
+    "steamAppId": 221100,
+    "mods": []
+  },
+  "ui": {
+    "slideshowSeconds": 7,
+    "statusRefreshSeconds": 30
+  },
+  "news": [
+    {
+      "title": "Bienvenido, sobreviviente",
+      "text": "Leé el reglamento antes de entrar. Ante cualquier duda o reporte, abrí un ticket en el Discord."
+    }
+  ],
+  "rules": [
+    {
+      "title": "Abuso de zona segura",
+      "icon": "shield",
+      "text": "Los jugadores no podrán abusar de la zona segura para evitar que un jugador que los está atacando pueda matarlos y así quedarse con su loot. Los reportes se toman sí o sí con clips que validen lo que se dice. Si el ticket no incluye clip, se cierra automáticamente."
+    },
+    {
+      "title": "Loot en la base",
+      "icon": "lock",
+      "text": "Los jugadores de clanes tienen prohibido guardar loot en esta base. Solamente los huéspedes pueden hacerlo, mediante lockers con codelock para que ningún jugador les robe el loot. Los cupos son siempre limitados: si un jugador no presenta actividad, su locker se elimina y se le otorga a otro jugador."
+    },
+    {
+      "title": "Criterio de la administración",
+      "icon": "scale",
+      "text": "Queda totalmente a criterio de Romy Soto sancionar a los jugadores por malas conductas, aprovechamiento de la zona y conductas no toleradas en el entorno."
+    },
+    {
+      "title": "Intercambios y estafas",
+      "icon": "swap",
+      "text": "La administración no se hace cargo de ningún intercambio entre jugadores ni toma tickets por estafas. Si un jugador se desloguea con un objeto que robó, eso sí es sancionable. Por lo demás, tienen toda la base para irse a un edificio y tradear tranquilos."
+    }
+  ],
+  "rulesNote": {
+    "title": "Objetos en el suelo",
+    "text": "Todo objeto tirado en el suelo puede ser tomado por terceros sin que sea sancionable. No dejen cosas tiradas en el piso: la administración no se hace cargo."
+  },
+  "communityTip": "Los reportes por abuso de la zona segura necesitan clip. Sin clip, el ticket se cierra automáticamente."
+}

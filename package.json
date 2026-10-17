@@ -1,0 +1,42 @@
+{
+  "name": "malvinas-1982-launcher",
+  "productName": "Malvinas 1982 Launcher",
+  "version": "1.0.0",
+  "description": "Launcher del servidor de DayZ Malvinas 1982",
+  "main": "main.js",
+  "author": "Malvinas 1982",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "mysql2": "^3.11.0"
+  },
+  "build": {
+    "appId": "com.malvinas1982.launcher",
+    "productName": "Malvinas 1982 Launcher",
+    "files": [
+      "main.js",
+      "preload.js",
+      "config.json",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

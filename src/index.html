@@ -73,7 +73,7 @@
 
     <nav class="nav">
       <button class="nav-btn active" data-view="home"><svg class="i"><use href="#i-home"/></svg><span>Inicio</span></button>
-      <button class="nav-btn" data-view="store"><svg class="i"><use href="#i-shopping"/></svg><span>Tienda VIP</span></button>
+      <button class="nav-btn" data-view="store"><svg class="i"><use href="#i-shopping"/></svg><span>Donar</span></button>
       <button class="nav-btn" data-view="tickets"><svg class="i"><use href="#i-ticket"/></svg><span>Soporte / Tickets</span></button>
       <button class="nav-btn" data-view="profile"><svg class="i"><use href="#i-user"/></svg><span>Mi Perfil</span></button>
       <button class="nav-btn" data-view="rules"><svg class="i"><use href="#i-book"/></svg><span>Reglamento</span></button>
@@ -114,7 +114,7 @@
             <svg class="i"><use href="#i-book"/></svg><span>Anuncios</span>
           </button>
           <button type="button" class="tb-dd-item" data-nav="store">
-            <svg class="i"><use href="#i-shopping"/></svg><span>Tienda VIP</span>
+            <svg class="i"><use href="#i-shopping"/></svg><span>Donar</span>
           </button>
           <div class="tb-dd-sep"></div>
           <button type="button" class="tb-dd-item" id="tbDevPanelBtn" hidden>
@@ -179,6 +179,10 @@
         </div>
 
         <aside class="home-right">
+          <div class="card servers-card" id="serversCard">
+            <div class="servers-card-head">Servidores</div>
+            <div class="servers-list" id="serverMapsList"></div>
+          </div>
           <div class="card status">
             <div class="status-head">
               <span class="pill wait" id="statusPill"><i class="pulse"></i><span id="statusText">CONSULTANDO</span></span>
@@ -213,22 +217,31 @@
     </section>
 
     <!-- TIENDA VIP Y PACKS -->
-    <section class="view" id="view-store">
+        <section class="view" id="view-store">
       <div class="view-bg"></div>
       <header class="view-head">
         <div class="head-icon"><svg class="i" style="width:24px;height:24px;color:var(--accent);"><use href="#i-shopping"/></svg></div>
         <div>
-          <h2>Tienda VIP y Packs</h2>
-          <p>Adquirí paquetes de equipamiento y membresías VIP vía PayPal (amarootm@gmail.com).</p>
+          <h2>Apoyar el servidor</h2>
+          <p>Las donaciones ayudan a mantener hosting, mods y el desarrollo del launcher.</p>
         </div>
       </header>
-      <div class="store-container">
-        <div class="store-toolbar">
-          <button type="button" class="btn-primary" id="openAddPackModal" style="display:none;">＋ Crear / Agregar Pack</button>
+      <div class="donate-container">
+        <div class="donate-grid" id="donateGrid">
+          <!-- tiers -->
         </div>
-        <div class="store-grid" id="storeGrid">
-          <!-- Generado dinámicamente -->
+        <div class="donate-custom card pad">
+          <div class="donate-custom-head">
+            <b>Donación personalizada</b>
+            <span class="muted">Mínimo USD 3.00</span>
+          </div>
+          <div class="donate-custom-row">
+            <span class="donate-currency">$</span>
+            <input class="input" type="number" id="donateCustomAmount" min="3" step="0.01" placeholder="Monto en USD" value="5">
+            <button type="button" class="btn-primary" id="donateCustomBtn">Donar con PayPal</button>
+          </div>
         </div>
+        <p class="donate-note muted">Serás redirigido a PayPal. Gracias por bancar Malvinas 1982.</p>
       </div>
     </section>
 
@@ -650,6 +663,21 @@
     </div>
     <div class="modal-foot">
       <button type="button" class="btn-primary" id="devAccentSave">Aplicar y guardar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Selector de mapa -->
+<div class="modal" id="mapSelectModal" hidden>
+  <div class="modal-box map-select-box">
+    <div class="modal-head">
+      <h3>Elegí el mapa</h3>
+      <button type="button" class="icon-btn" id="closeMapSelect"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" style="margin-bottom:12px;font-size:12.5px;">Seleccioná a qué servidor entrar.</p>
+      <div class="map-pick-grid" id="mapPickGrid"></div>
     </div>
   </div>
 </div>

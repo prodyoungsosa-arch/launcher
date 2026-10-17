@@ -285,7 +285,7 @@ function mapAnnouncement(row, extras = {}) {
       username: row.author_username || row.username,
       displayName: row.author_display || row.display_name || row.author_username,
       role: row.author_role || 'user',
-      avatarUrl: row.author_avatar || row.avatar_url || null,
+      avatarUrl: toClientMediaUrl(row.author_avatar || row.avatar_url) || null,
     },
     reactions: extras.reactions || {},
     myReactions: extras.myReactions || [],
@@ -400,25 +400,87 @@ async function queryDzsaApi(host, port, timeoutMs = 4000) {
 
 let statusCache = { ts: 0, data: null };
 
-async function getStatus() {
-  const { ip, queryPort } = config.server;
+function getMaps() {
+  const s = config.server || {};
+  if (Array.isArray(s.maps) && s.maps.length) {
+    return s.maps.map((m) => ({
+      id: m.id || String(m.gamePort),
+      name: m.name || m.id || 'Mapa',
+      gamePort: Number(m.gamePort) || Number(s.gamePort) || 2302,
+      queryPort: Number(m.queryPort) || Number(s.queryPort) || 27016,
+      joinUrl:
+        m.joinUrl ||
+        `https://join.dayzsalauncher.com/${s.ip}:${m.gamePort || s.gamePort}`,
+      description: m.description || '',
+      ip: s.ip,
+    }));
+  }
+  return [
+    {
+      id: 'default',
+      name: s.map || 'Chernarus+',
+      gamePort: Number(s.gamePort) || 2302,
+      queryPort: Number(s.queryPort) || 27016,
+      joinUrl: s.joinUrl,
+      description: '',
+      ip: s.ip,
+    },
+  ];
+}
+
+async function queryOneMap(map) {
   let info = null;
   try {
-    info = await queryA2S(ip, queryPort);
-  } catch {}
-  if (!info) {
+    info = await queryA2S(map.ip, map.queryPort);
+  } catch {
     try {
-      info = await queryDzsaApi(ip, queryPort);
+      info = await queryDzsaApi(map.ip, map.queryPort);
     } catch {}
   }
-  if (!info) return { online: false, players: 0, maxPlayers: 0, ping: null, ts: Date.now() };
+  if (!info) {
+    return {
+      id: map.id,
+      name: map.name,
+      online: false,
+      players: 0,
+      maxPlayers: 0,
+      map: map.name,
+      ip: map.ip,
+      gamePort: map.gamePort,
+      joinUrl: map.joinUrl,
+      description: map.description || '',
+      ping: null,
+    };
+  }
   return {
+    id: map.id,
+    name: map.name,
     online: true,
     players: info.players,
     maxPlayers: info.maxPlayers,
-    ping: info.ping,
-    name: info.name,
+    map: info.map || map.name,
+    ip: map.ip,
+    gamePort: map.gamePort,
+    joinUrl: map.joinUrl,
+    description: map.description || '',
+    ping: info.ping || null,
+  };
+}
+
+async function getStatus() {
+  const maps = getMaps();
+  const results = await Promise.all(maps.map((m) => queryOneMap(m)));
+  const anyOnline = results.some((r) => r.online);
+  const players = results.reduce((a, r) => a + (Number(r.players) || 0), 0);
+  const maxPlayers = results.reduce((a, r) => a + (Number(r.maxPlayers) || 0), 0);
+  return {
+    online: anyOnline,
+    players,
+    maxPlayers,
+    ping: results.find((r) => r.ping)?.ping || null,
+    name: config.server?.name,
     ts: Date.now(),
+    maps: results,
   };
 }
 
@@ -435,6 +497,10 @@ function allowedHosts() {
 function openSafe(url, { anyHttps = false } = {}) {
   try {
     const u = new URL(url);
+    if (u.protocol === 'steam:') {
+      shell.openExternal(u.toString());
+      return true;
+    }
     if (u.protocol !== 'https:') return false;
     if (anyHttps || allowedHosts().has(u.hostname)) {
       shell.openExternal(u.toString());
@@ -453,19 +519,29 @@ function buildLaunchArgs() {
   return args;
 }
 
-async function launchGame() {
+async function launchGame(opts = {}) {
   try {
+    const maps = await getMaps();
+    const mapId = opts.mapId || null;
+    const selected = (mapId && maps.find((m) => m.id === mapId)) || maps[0];
+    if (!selected) throw new Error('No hay mapas configurados');
+
     if (settings.launchMode === 'steam') {
       const appId = Number(config.server.steamAppId) || 221100;
-      const url = `steam://run/${appId}//${encodeURI(buildLaunchArgs().join(' '))}`;
-      await shell.openExternal(url);
+      const args = [`-connect=${selected.ip}`, `-port=${selected.gamePort}`, '-nolauncher'];
+      if (settings.playerName) args.push(`-name=${settings.playerName}`);
+      if (settings.extraParams) args.push(...String(settings.extraParams).split(/\s+/).filter(Boolean));
+      // Steam connect via +connect is more reliable with steam://
+      const steamUrl = `steam://run/${appId}//-connect=${selected.ip} -port=${selected.gamePort} -nolauncher/`;
+      if (!openSafe(steamUrl) && !openSafe(selected.joinUrl)) {
+        throw new Error('No se pudo abrir Steam / enlace del servidor');
+      }
     } else {
-      if (!openSafe(config.server.joinUrl)) throw new Error('URL de conexión inválida en config.json');
+      if (!openSafe(selected.joinUrl)) throw new Error('URL de conexión inválida');
     }
-    if (settings.minimizeOnPlay && win) win.minimize();
-    return { ok: true, mode: settings.launchMode };
+    return { ok: true, mode: settings.launchMode, map: selected.name, mapId: selected.id };
   } catch (err) {
-    return { ok: false, error: String(err.message || err) };
+    return { ok: false, error: err.message || String(err) };
   }
 }
 
@@ -641,6 +717,7 @@ function registerIpc() {
                 u.username AS author_username,
                 u.display_name AS author_display,
                 u.role AS author_role,
+                u.avatar_url AS author_avatar,
                 (SELECT COUNT(*) FROM announcement_comments c WHERE c.announcement_id = a.id) AS comment_count
          FROM announcements a
          JOIN users u ON u.id = a.author_id
@@ -935,7 +1012,7 @@ function registerIpc() {
             username: r.username,
             displayName: r.display_name || r.username,
             role: r.role,
-            avatarUrl: r.avatar_url || null,
+            avatarUrl: toClientMediaUrl(r.avatar_url) || null,
           },
         })),
       };
@@ -1032,10 +1109,10 @@ function registerIpc() {
     return data;
   });
 
-  ipcMain.handle('game:play', async () => {
+  ipcMain.handle('game:play', async (_e, opts = {}) => {
     const me = await requireUser();
     if (!me) return { ok: false, error: 'Iniciá sesión para jugar' };
-    return launchGame();
+    return launchGame(opts || {});
   });
 
   ipcMain.handle('settings:save', (_e, incoming) => {
@@ -1338,7 +1415,7 @@ function registerIpc() {
             username: r.username,
             displayName: r.display_name || r.username,
             role: r.role,
-            avatarUrl: r.avatar_url || null,
+            avatarUrl: toClientMediaUrl(r.avatar_url) || null,
           },
         })),
       };

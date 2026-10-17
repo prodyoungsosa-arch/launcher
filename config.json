@@ -9,11 +9,54 @@
     "joinUrl": "https://join.dayzsalauncher.com/188.255.171.160:2302",
     "discordUrl": "https://discord.gg/zpmf7HzYT",
     "steamAppId": 221100,
-    "mods": []
+    "mods": [],
+    "maps": [
+      {
+        "id": "chernarus",
+        "name": "Chernarus+",
+        "gamePort": 2302,
+        "queryPort": 27016,
+        "joinUrl": "https://join.dayzsalauncher.com/188.255.171.160:2302",
+        "description": "Mapa clásico. Supervivencia táctica en territorio continental."
+      },
+      {
+        "id": "nasdara",
+        "name": "Nasdara",
+        "gamePort": 2332,
+        "queryPort": 27016,
+        "joinUrl": "https://join.dayzsalauncher.com/188.255.171.160:2332",
+        "description": "Servidor Nasdara · IP :2332"
+      }
+    ]
   },
   "ui": {
     "slideshowSeconds": 7,
     "statusRefreshSeconds": 30
+  },
+  "donate": {
+    "paypalBusiness": "amarootm@gmail.com",
+    "currency": "USD",
+    "tiers": [
+      {
+        "id": "d3",
+        "amount": 3,
+        "label": "Apoyo básico",
+        "desc": "Gracias por bancar el server."
+      },
+      {
+        "id": "d10",
+        "amount": 10,
+        "label": "Apoyo sólido",
+        "desc": "Ayudás a mantener mods y hosting."
+      },
+      {
+        "id": "d20",
+        "amount": 20,
+        "label": "Apoyo élite",
+        "desc": "Contribución grande para el proyecto."
+      }
+    ],
+    "minCustom": 3
   },
   "news": [
     {

@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   boot: () => ipcRenderer.invoke('app:boot'),
   images: () => ipcRenderer.invoke('app:images'),
   status: () => ipcRenderer.invoke('server:status'),
-  play: () => ipcRenderer.invoke('game:play'),
+  play: (opts) => ipcRenderer.invoke('game:play', opts || {}),
   saveSettings: (s) => ipcRenderer.invoke('settings:save', s),
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
   copy: (text) => ipcRenderer.invoke('clipboard:copy', text),

@@ -884,44 +884,208 @@ textarea:disabled {
   font-family: var(--font-mono);
 }
 
-/* Feed más red social */
-.announcement-card {
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+/* feed styles moved to auth-announcements.css */
+
+
+
+/* ===== Servidores en inicio ===== */
+.servers-card {
+  padding: 12px 14px;
+  margin-bottom: 10px;
 }
-.announcement-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+.servers-card-head {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 10px;
 }
-.announcement-card.unread {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  box-shadow: inset 3px 0 0 var(--accent);
+.servers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.btn-compose {
+.server-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+}
+.server-row-main {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--bg-surface)), var(--bg-surface));
-  color: var(--text);
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  min-width: 0;
 }
-.btn-compose:hover {
+.server-row-main b {
+  font-size: 13px;
+  display: block;
+}
+.server-ip {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+.server-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bad, #ef4444);
+  flex-shrink: 0;
+}
+.server-dot.on {
+  background: var(--ok, #22c55e);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+.server-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+/* ===== Selector de mapa ===== */
+.map-select-box {
+  width: min(520px, 94vw);
+}
+.map-pick-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.map-pick-card {
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.map-pick-card:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   transform: translateY(-1px);
 }
-.compose-plus {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
+.map-pick-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.map-pick-name {
+  font-weight: 800;
+  font-size: 15px;
+}
+.map-pick-ip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-hover);
+  margin-bottom: 4px;
+}
+.map-pick-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.map-pick-players {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* ===== Donaciones ===== */
+.donate-container {
+  position: absolute;
+  left: 36px;
+  right: 28px;
+  top: 114px;
+  bottom: 20px;
+  overflow-y: auto;
+  z-index: 2;
+  max-width: 720px;
+}
+.donate-grid {
   display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: var(--on-accent, #fff);
-  font-size: 1.1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+  .donate-grid { grid-template-columns: 1fr; }
+}
+.donate-card {
+  padding: 18px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.donate-amount {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--accent-hover);
+}
+.donate-label {
+  font-weight: 700;
+  font-size: 14px;
+}
+.donate-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  flex: 1;
+}
+.donate-custom {
+  margin-bottom: 10px;
+}
+.donate-custom-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.donate-custom-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.donate-currency {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--muted);
+}
+.donate-note {
+  font-size: 12px;
+}
+
+/* Comentarios: avatar siempre visible */
+.comment .avatar,
+.comment .avatar.sm {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.comment .avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ann-avatar {
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.06);
 }

@@ -212,7 +212,7 @@
     }
 
     if (currentUser) initProfileData();
-    loadStore();
+    /* store removed */
     loadTickets();
   }
 
@@ -620,6 +620,7 @@
       if (span) span.textContent = 'Servidor offline';
     }
     updateAge();
+    renderServersList(s);
   }
 
   function updateAge() {
@@ -650,11 +651,65 @@
 
   function setupPlay() {
     const btn = $('#playBtn');
-    const label = $('#playLabel');
     if (!btn) return;
     let busy = false;
 
-    btn.addEventListener('click', async () => {
+    const getMapsFromCfg = () => {
+      const s = CFG?.server || {};
+      if (Array.isArray(s.maps) && s.maps.length) {
+        return s.maps.map((m) => ({
+          id: m.id,
+          name: m.name,
+          gamePort: m.gamePort,
+          joinUrl: m.joinUrl,
+          description: m.description || '',
+          ip: s.ip,
+        }));
+      }
+      return [
+        {
+          id: 'default',
+          name: s.map || 'Chernarus+',
+          gamePort: s.gamePort,
+          joinUrl: s.joinUrl,
+          description: '',
+          ip: s.ip,
+        },
+      ];
+    };
+
+    const openMapSelect = () => {
+      const maps = getMapsFromCfg();
+      const grid = $('#mapPickGrid');
+      if (!grid) return;
+      const statusMaps = lastStatus?.maps || [];
+      grid.innerHTML = maps
+        .map((m) => {
+          const st = statusMaps.find((x) => x.id === m.id) || {};
+          const online = !!st.online;
+          const players = st.players != null ? `${st.players}/${st.maxPlayers || '?'}` : '—';
+          return `
+          <button type="button" class="map-pick-card" data-map-id="${esc(m.id)}">
+            <div class="map-pick-top">
+              <span class="map-pick-name">${esc(m.name)}</span>
+              <span class="pill ${online ? 'on' : 'off'}"><i class="pulse"></i>${online ? 'ONLINE' : 'OFFLINE'}</span>
+            </div>
+            <div class="map-pick-ip">${esc(m.ip)}:${esc(String(m.gamePort))}</div>
+            <div class="map-pick-desc">${esc(m.description || '')}</div>
+            <div class="map-pick-players">${esc(players)} jugadores</div>
+          </button>`;
+        })
+        .join('');
+      grid.querySelectorAll('[data-map-id]').forEach((el) => {
+        el.addEventListener('click', () => {
+          $('#mapSelectModal').hidden = true;
+          doLaunch(el.dataset.mapId);
+        });
+      });
+      $('#mapSelectModal').hidden = false;
+    };
+
+    const doLaunch = async (mapId) => {
       if (busy) return;
       if (!currentUser) {
         showAuthGate(true);
@@ -663,35 +718,102 @@
       }
       busy = true;
       btn.classList.add('loading');
-      if (label) label.textContent = 'INICIANDO…';
-      let res;
-      try {
-        res = await api.play();
-      } catch {
-        res = { ok: false, error: 'No se pudo iniciar el juego.' };
-      }
-      if (res.ok) toast(res.mode === 'steam' ? 'Iniciando DayZ desde Steam…' : 'Abriendo conexión al servidor…');
-      else toast(res.error || 'No se pudo iniciar el juego.', 'error');
+      const label = $('#playLabel');
+      if (label) label.textContent = 'ABRIENDO…';
+      const res = await api.play({ mapId });
+      if (res.ok) {
+        toast(res.map ? `Entrando a ${res.map}…` : 'Abriendo conexión al servidor…');
+        if (SET.minimizeOnPlay) {
+          /* optional */
+        }
+      } else toast(res.error || 'No se pudo iniciar el juego.', 'error');
       setTimeout(() => {
         btn.classList.remove('loading');
         if (label) label.textContent = 'JUGAR AHORA';
         busy = false;
       }, 3500);
+    };
+
+    btn.addEventListener('click', () => {
+      const maps = getMapsFromCfg();
+      if (maps.length > 1) openMapSelect();
+      else doLaunch(maps[0]?.id);
     });
 
-    const ipFull = () => `${CFG.server.ip}:${CFG.server.gamePort}`;
+    $('#closeMapSelect')?.addEventListener('click', () => {
+      $('#mapSelectModal').hidden = true;
+    });
+    $('#mapSelectModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'mapSelectModal') $('#mapSelectModal').hidden = true;
+    });
+
     const copy = async (text, msg) => {
       await api.copy(text);
       toast(msg);
     };
 
-    $('#copyIpBtn')?.addEventListener('click', () => copy(ipFull(), 'IP copiada al portapapeles'));
-    $('#fIpCopy')?.addEventListener('click', () => copy(ipFull(), 'IP copiada al portapapeles'));
+    $('#copyIpBtn')?.addEventListener('click', () => {
+      const maps = getMapsFromCfg();
+      const text = maps.map((m) => `${m.ip}:${m.gamePort}`).join('\n');
+      copy(text, 'IPs copiadas');
+    });
+    $('#fIpCopy')?.addEventListener('click', () => {
+      const maps = getMapsFromCfg();
+      copy(maps.map((m) => `${m.ip}:${m.gamePort}`).join(' · '), 'IP copiada');
+    });
     $('#fJoinCopy')?.addEventListener('click', () => copy(CFG.server.joinUrl, 'Enlace copiado'));
     $('#fJoinOpen')?.addEventListener('click', () => api.openExternal(CFG.server.joinUrl));
     $('#discordBtn')?.addEventListener('click', () => api.openExternal(CFG.server.discordUrl));
     $('#commDiscord')?.addEventListener('click', () => api.openExternal(CFG.server.discordUrl));
   }
+
+  function renderServersList(status) {
+    const host = $('#serverMapsList');
+    if (!host || !CFG?.server) return;
+    const maps =
+      status?.maps ||
+      (CFG.server.maps || []).map((m) => ({
+        id: m.id,
+        name: m.name,
+        gamePort: m.gamePort,
+        ip: CFG.server.ip,
+        online: false,
+        players: 0,
+        maxPlayers: 0,
+      }));
+    // ensure nasdara appears even if status still old shape
+    if (!maps.length) {
+      host.innerHTML = `<div class="server-row"><span>${esc(CFG.server.ip)}:${esc(String(CFG.server.gamePort))}</span></div>`;
+      return;
+    }
+    host.innerHTML = maps
+      .map((m) => {
+        const online = !!m.online;
+        return `
+        <div class="server-row">
+          <div class="server-row-main">
+            <span class="server-dot ${online ? 'on' : 'off'}"></span>
+            <div>
+              <b>${esc(m.name || 'Mapa')}</b>
+              <div class="server-ip">${esc(m.ip || CFG.server.ip)}:${esc(String(m.gamePort))}</div>
+            </div>
+          </div>
+          <div class="server-row-meta">
+            <span>${online ? `${m.players}/${m.maxPlayers}` : '—'}</span>
+            <button type="button" class="btn-ghost sm" data-copy-ip="${esc(m.ip || CFG.server.ip)}:${esc(String(m.gamePort))}">Copiar</button>
+          </div>
+        </div>`;
+      })
+      .join('');
+    host.querySelectorAll('[data-copy-ip]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await api.copy(btn.dataset.copyIp);
+        toast('IP copiada');
+      });
+    });
+  }
+
+  
 
   function setupSettings() {
     const name = $('#setName');
@@ -738,162 +860,61 @@
     });
   }
 
-  /* ───── Tienda VIP y Packs (MySQL) ───── */
+  /* ───── Donaciones ───── */
 
-  async function loadStore() {
-    try {
-      const res = await api.listPacks();
-      if (!res || !res.ok) {
-        storePacks = [];
-        if (res?.error) toast(res.error, 'error');
-      } else {
-        storePacks = res.data || [];
-      }
-    } catch (err) {
-      console.error('loadStore', err);
-      storePacks = [];
-    }
-    renderStore();
-  }
+  function setupDonate() {
+    const render = () => {
+      const grid = $('#donateGrid');
+      if (!grid) return;
+      const donate = CFG?.donate || {};
+      const tiers = donate.tiers || [
+        { id: 'd3', amount: 3, label: 'Apoyo básico', desc: 'Gracias por bancar el server.' },
+        { id: 'd10', amount: 10, label: 'Apoyo sólido', desc: 'Ayudás a mantener mods y hosting.' },
+        { id: 'd20', amount: 20, label: 'Apoyo élite', desc: 'Contribución grande para el proyecto.' },
+      ];
+      grid.innerHTML = tiers
+        .map(
+          (t) => `
+        <div class="donate-card">
+          <div class="donate-amount">$${Number(t.amount).toFixed(0)}</div>
+          <div class="donate-label">${esc(t.label)}</div>
+          <p class="donate-desc">${esc(t.desc || '')}</p>
+          <button type="button" class="btn-primary" data-donate="${Number(t.amount)}">Donar $${Number(t.amount).toFixed(0)}</button>
+        </div>`
+        )
+        .join('');
+      grid.querySelectorAll('[data-donate]').forEach((btn) => {
+        btn.addEventListener('click', () => openDonate(Number(btn.dataset.donate)));
+      });
+    };
 
-  function renderStore() {
-    const grid = $('#storeGrid');
-    if (!grid) return;
-
-    const addBtn = $('#openAddPackModal');
-    if (addBtn && currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev')) {
-      addBtn.style.display = 'inline-flex';
-    } else if (addBtn) {
-      addBtn.style.display = 'none';
-    }
-
-    if (!storePacks.length) {
-      grid.innerHTML = `<div class="card pad" style="text-align:center;color:var(--muted);grid-column:1/-1;">No hay packs disponibles.</div>`;
-      return;
-    }
-
-    grid.innerHTML = storePacks
-      .map(
-        (pack) => `
-      <div class="store-card" data-pack-id="${pack.id}">
-        ${
-          currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev')
-            ? `
-          <div class="store-actions-admin">
-            <button type="button" class="icon-btn" data-store-action="edit" data-pack-id="${pack.id}" title="Editar"><svg class="i"><use href="#i-sliders"/></svg></button>
-            <button type="button" class="icon-btn" data-store-action="delete" data-pack-id="${pack.id}" title="Eliminar" style="color:var(--bad)"><svg class="i"><use href="#i-x"/></svg></button>
-          </div>`
-            : ''
-        }
-        <div class="store-card-icon"><svg class="i"><use href="#i-${esc(pack.icon || 'shield')}"/></svg></div>
-        <h3>${esc(pack.name)}</h3>
-        <p>${esc(pack.description || '')}</p>
-        <div class="store-card-footer">
-          <span class="store-price">$${Number(pack.price).toFixed(2)} USD</span>
-          <button type="button" class="btn-primary" data-store-action="buy" data-pack-id="${pack.id}">Comprar con PayPal</button>
-        </div>
-      </div>`
-      )
-      .join('');
-  }
-
-  function buyPack(id) {
-    const pack = storePacks.find((p) => String(p.id) === String(id));
-    if (!pack) {
-      toast('Pack no encontrado', 'error');
-      return;
-    }
-    if (!currentUser) {
-      showAuthGate(true);
-      toast('Iniciá sesión para comprar', 'error');
-      return;
-    }
-    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=amarootm@gmail.com&item_name=${encodeURIComponent(pack.name)}&amount=${pack.price}&currency_code=USD`;
-    api.openExternal(paypalUrl);
-    toast(`Redirigiendo a PayPal para abonar $${Number(pack.price).toFixed(2)} USD...`);
-  }
-
-  async function deletePack(id) {
-    if (!confirm('¿Eliminar este pack?')) return;
-    const res = await api.deletePack(Number(id));
-    if (!res.ok) {
-      toast(res.error || 'No se pudo eliminar', 'error');
-      return;
-    }
-    toast('Pack eliminado correctamente.');
-    await loadStore();
-  }
-
-  function editPack(id) {
-    const pack = storePacks.find((p) => String(p.id) === String(id));
-    if (!pack) return;
-    $('#packEditId').value = pack.id;
-    $('#packNameInput').value = pack.name;
-    $('#packDescInput').value = pack.description || '';
-    $('#packPriceInput').value = pack.price;
-    $('#packIconSelect').value = pack.icon || 'shield';
-    if ($('#packModalTitle')) $('#packModalTitle').textContent = 'Editar Pack VIP';
-    $('#packModal').hidden = false;
-  }
-
-  function setupStore() {
-    $('#storeGrid')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-store-action]');
-      if (!btn) return;
-      e.preventDefault();
-      const action = btn.dataset.storeAction;
-      const id = btn.dataset.packId;
-      if (action === 'buy') buyPack(id);
-      else if (action === 'edit') editPack(id);
-      else if (action === 'delete') deletePack(id);
-    });
-
-    $('#openAddPackModal')?.addEventListener('click', () => {
-      $('#packEditId').value = '';
-      $('#packNameInput').value = '';
-      $('#packDescInput').value = '';
-      $('#packPriceInput').value = '';
-      $('#packIconSelect').value = 'shield';
-      if ($('#packModalTitle')) $('#packModalTitle').textContent = 'Crear Pack VIP';
-      $('#packModal').hidden = false;
-    });
-
-    $('#closePackModal')?.addEventListener('click', () => {
-      $('#packModal').hidden = true;
-    });
-    $('#packModal')?.addEventListener('click', (e) => {
-      if (e.target.id === 'packModal') $('#packModal').hidden = true;
-    });
-
-    $('#savePackBtn')?.addEventListener('click', async () => {
-      const editId = $('#packEditId').value;
-      const name = $('#packNameInput').value.trim();
-      const description = $('#packDescInput').value.trim();
-      const price = parseFloat($('#packPriceInput').value);
-      const icon = $('#packIconSelect').value;
-
-      if (!name || isNaN(price) || price < 0) {
-        toast('Completá los campos correctamente.', 'error');
+    const openDonate = (amount) => {
+      const min = Number(CFG?.donate?.minCustom) || 3;
+      const value = Number(amount);
+      if (!Number.isFinite(value) || value < min) {
+        toast(`El monto mínimo es USD ${min.toFixed(2)}`, 'error');
         return;
       }
+      const business = CFG?.donate?.paypalBusiness || 'amarootm@gmail.com';
+      const currency = CFG?.donate?.currency || 'USD';
+      const url = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(
+        business
+      )}&item_name=${encodeURIComponent('Donación Malvinas 1982')}&amount=${value.toFixed(
+        2
+      )}&currency_code=${encodeURIComponent(currency)}`;
+      api.openExternal(url);
+      toast(`Abriendo PayPal · USD ${value.toFixed(2)}`);
+    };
 
-      let res;
-      if (editId) {
-        res = await api.updatePack({ id: Number(editId), name, description, price, icon });
-      } else {
-        res = await api.createPack({ name, description, price, icon });
-      }
-      if (!res.ok) {
-        toast(res.error || 'Error al guardar', 'error');
-        return;
-      }
-      $('#packModal').hidden = true;
-      toast('Pack guardado con éxito.');
-      await loadStore();
+    $('#donateCustomBtn')?.addEventListener('click', () => {
+      const raw = parseFloat($('#donateCustomAmount')?.value || '0');
+      openDonate(raw);
     });
+
+    render();
   }
 
-  /* ───── Soporte / Tickets (MySQL) ───── */
+    /* ───── Soporte / Tickets (MySQL) ───── */
 
   async function loadTickets() {
     if (!currentUser) {
@@ -1398,51 +1419,59 @@
 
   function renderAnnouncementCard(ann, isUnread = false) {
     const authorName = ann.author?.displayName || ann.author?.username || '—';
+    const role = ann.author?.role || 'user';
+    const staffBadge = ['admin', 'dev'].includes(role)
+      ? `<span class="ann-staff">${esc(role)}</span>`
+      : '';
     const sections = (ann.sections || [])
       .map((s) => `<span class="ann-section">${esc(s)}</span>`)
       .join('');
-    const staffBadge = ['admin', 'dev'].includes(ann.author?.role)
-      ? `<span class="ann-staff">${esc(ann.author.role)}</span>`
-      : '';
-    const actions = ann.canEdit
-      ? `<div class="ann-admin">
-          <button type="button" class="btn-ghost sm" data-edit="${ann.id}">Editar</button>
-          <button type="button" class="btn-ghost sm danger" data-del="${ann.id}">Eliminar</button>
+    const avatar = ann.author?.avatarUrl
+      ? `<img class="ann-avatar-img" src="${esc(ann.author.avatarUrl)}" alt="">`
+      : `<span class="ann-avatar-initials">${esc(initials(authorName))}</span>`;
+    const avatarStyle = ann.author?.avatarUrl ? '' : ` style="background:${avatarColor(authorName)}"`;
+    const body = esc(ann.content).replace(/\n/g, '<br>');
+    const adminBtns = ann.canEdit
+      ? `<div class="ann-head-actions">
+          <button type="button" class="ann-icon-btn" data-edit="${ann.id}" title="Editar">✎</button>
+          <button type="button" class="ann-icon-btn danger" data-del="${ann.id}" title="Eliminar">🗑</button>
         </div>`
       : '';
-    const avatar = ann.author?.avatarUrl
-      ? `<div class="avatar has-img"><img src="${esc(ann.author.avatarUrl)}" alt=""></div>`
-      : `<div class="avatar" style="background:${avatarColor(authorName)}">${esc(initials(authorName))}</div>`;
-    const body = esc(ann.content).replace(/\n/g, '<br>');
 
     return `
-      <article class="announcement-card${ann.pinned ? ' pinned' : ''}${isUnread ? ' unread' : ''}" data-ann="${ann.id}">
-        <div class="feed-card-top">
-          ${avatar}
-          <div class="feed-meta">
-            <div class="feed-author">
-              <b>${esc(authorName)}</b>
+      <article class="ann-card${ann.pinned ? ' is-pinned' : ''}${isUnread ? ' is-unread' : ''}" data-ann="${ann.id}">
+        <header class="ann-head">
+          <div class="ann-avatar"${avatarStyle}>${avatar}</div>
+          <div class="ann-head-main">
+            <div class="ann-name-line">
+              <span class="ann-name">${esc(authorName)}</span>
               ${staffBadge}
-              ${ann.pinned ? '<span class="ann-pin">📌</span>' : ''}
+              ${ann.pinned ? '<span class="ann-pin" title="Fijado">📌</span>' : ''}
             </div>
-            <div class="feed-sub">
-              <span class="announcement-badge">${esc(ann.category || 'Novedad')}</span>
+            <div class="ann-meta-line">
+              <span class="ann-cat">${esc(ann.category || 'Novedad')}</span>
               ${sections}
-              <span class="announcement-date">· ${esc(formatDate(ann.createdAt))}</span>
+              <span class="ann-time">${esc(formatDate(ann.createdAt))}</span>
             </div>
           </div>
-          ${actions}
+          ${adminBtns}
+        </header>
+        <div class="ann-content">
+          <h3 class="ann-title">${esc(ann.title)}</h3>
+          <div class="ann-text">${body}</div>
+          ${mediaHtml(ann)}
         </div>
-        <h3 class="feed-title">${esc(ann.title)}</h3>
-        <p class="ann-body">${body}</p>
-        ${mediaHtml(ann)}
-        ${reactionsHtml(ann)}
-        <div class="feed-actions">
-          <button type="button" class="comments-toggle" data-toggle-comments="${ann.id}">
-            <span class="chev">▾</span> 💬 <span>${ann.commentCount || 0}</span> comentarios
-          </button>
-          <button type="button" class="feed-action" data-open-emoji="${ann.id}">😊 Reaccionar</button>
-        </div>
+        <footer class="ann-foot">
+          ${reactionsHtml(ann)}
+          <div class="ann-toolbar">
+            <button type="button" class="ann-tool" data-toggle-comments="${ann.id}">
+              <span class="chev">▾</span>
+              <span>💬</span>
+              <span class="ann-tool-count">${ann.commentCount || 0}</span>
+              <span>comentarios</span>
+            </button>
+          </div>
+        </footer>
         <div class="ann-comments" id="comments-${ann.id}" hidden>
           <div class="ann-comments-inner"></div>
         </div>
@@ -1795,9 +1824,9 @@
     renderNews();
     setupPlay();
     setupSettings();
-    setupStore();
+    setupDonate();
     setupTickets();
-    await loadStore();
+    /* store removed */
     await loadTickets();
     updateUserUI();
 

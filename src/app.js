@@ -272,8 +272,8 @@
   function setupNav() {
     $$('.nav-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        $$('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));$$
-('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${btn.dataset.view}`));
+        $$('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
+        $$('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${btn.dataset.view}`));
         if (btn.dataset.view === 'news') loadAnnouncements();
       });
     });
@@ -437,7 +437,7 @@
       else toast(res.error || 'No se pudo iniciar el juego.', 'error');
       setTimeout(() => {
         btn.classList.remove('loading');
-        if (label) label.textContent = 'JUGAR';
+        if (label) label.textContent = 'JUGAR AHORA';
         busy = false;
       }, 3500);
     });
@@ -460,7 +460,10 @@
     const name = $('#setName');
     const params = $('#setParams');
     const min = $('#setMin');
-    const themeToggle = $('#setThemeToggle'); if (!name) return;      $$('input[name="mode"]').forEach((r) => (r.checked = r.value === SET.launchMode));
+    const themeToggle = $('#setThemeToggle');
+    if (!name) return;
+
+    $$('input[name="mode"]').forEach((r) => (r.checked = r.value === SET.launchMode));
     name.value = SET.playerName || '';
     params.value = SET.extraParams || '';
     if (min) min.checked = !!SET.minimizeOnPlay;
@@ -473,7 +476,19 @@
     const save = (silent) => {
       clearTimeout(t);
       t = setTimeout(async () => {
-        const mode = $('input[name="mode"]:checked'); SET = await api.saveSettings({ launchMode: mode ? mode.value : SET.launchMode, playerName: name.value, extraParams: params.value, minimizeOnPlay: min ? min.checked : SET.minimizeOnPlay, theme: themeToggle?.checked ? 'light' : 'dark', }); if (!silent) toast('Ajustes guardados'); }, 350); };      $$('input[name="mode"]').forEach((r) => r.addEventListener('change', () => save()));
+        const mode = $('input[name="mode"]:checked');
+        SET = await api.saveSettings({
+          launchMode: mode ? mode.value : SET.launchMode,
+          playerName: name.value,
+          extraParams: params.value,
+          minimizeOnPlay: min ? min.checked : SET.minimizeOnPlay,
+          theme: themeToggle?.checked ? 'light' : 'dark',
+        });
+        if (!silent) toast('Ajustes guardados');
+      }, 350);
+    };
+
+    $$('input[name="mode"]').forEach((r) => r.addEventListener('change', () => save()));
     name.addEventListener('input', () => save(true));
     params.addEventListener('input', () => save(true));
     min?.addEventListener('change', () => save());
@@ -560,7 +575,7 @@
     const icon = $('#packIconSelect').value;
 
     if (!name || isNaN(price)) {
-      toast('Completá los campos correctamente.', true);
+      toast('Completá los campos correctamente.', 'error');
       return;
     }
 
@@ -606,7 +621,7 @@
   $('#openNewTicketModal')?.addEventListener('click', () => {
     const openCount = myTickets.filter(t => t.status !== 'Cerrado').length;
     if (openCount >= 3) {
-      toast('Límite alcanzado: No puedes tener más de 3 tickets abiertos simultáneamente.', true);
+      toast('Límite alcanzado: No puedes tener más de 3 tickets abiertos simultáneamente.', 'error');
       return;
     }
     $('#ticketModal').hidden = false;
@@ -620,7 +635,7 @@
     const subject = $('#ticketSubject').value.trim();
     const message = $('#ticketMessage').value.trim();
     if (!subject || !message) {
-      toast('Completá todos los campos.', true);
+      toast('Completá todos los campos.', 'error');
       return;
     }
 
@@ -738,13 +753,13 @@
     const password = $('#profileCurrentPassword')?.value.trim() || '';
 
     if (!newDisplayName) {
-      toast('El apodo no puede estar vacío.', true);
+      toast('El apodo no puede estar vacío.', 'error');
       return;
     }
 
     if (currentUser && !currentUser.usernameChanged) {
       if (!password) {
-        toast('Debes ingresar tu contraseña actual para confirmar el cambio de apodo.', true);
+        toast('Debes ingresar tu contraseña actual para confirmar el cambio de apodo.', 'error');
         return;
       }
       currentUser.usernameChanged = true;

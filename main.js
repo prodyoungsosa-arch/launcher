@@ -35,6 +35,8 @@ const DEFAULT_SETTINGS = {
   extraParams: '',
   minimizeOnPlay: true,
   theme: 'dark',
+  accentColor: '#2563eb',
+  lastAnnouncementRead: 0,
 };
 
 let config = null;
@@ -121,6 +123,14 @@ function sanitizeSettings(input = {}, base = settings) {
   const out = { ...base };
   if (['dzsa', 'steam'].includes(input.launchMode)) out.launchMode = input.launchMode;
   if (['dark', 'light'].includes(input.theme)) out.theme = input.theme;
+  if (typeof input.accentColor === 'string') {
+    const hex = input.accentColor.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) out.accentColor = hex.toLowerCase();
+  }
+  if (input.lastAnnouncementRead != null) {
+    const n = Number(input.lastAnnouncementRead);
+    if (Number.isFinite(n) && n >= 0) out.lastAnnouncementRead = n;
+  }
   if (typeof input.playerName === 'string') {
     out.playerName = input.playerName.replace(/[^\w\-. ]/g, '').trim().slice(0, 32);
   }
@@ -133,13 +143,18 @@ function sanitizeSettings(input = {}, base = settings) {
 
 function publicUser(row) {
   if (!row) return null;
+  let avatar = row.avatar_url || null;
+  if (avatar && !/^https?:\/\//i.test(avatar) && !avatar.startsWith('annmedia://')) {
+    avatar = `annmedia://${path.basename(String(avatar).replace(/\\/g, '/'))}`;
+  }
   return {
     id: row.id,
     username: row.username,
     email: row.email,
     role: row.role || 'user',
     displayName: row.display_name || row.username,
-    avatarUrl: row.avatar_url || null,
+    avatarUrl: avatar,
+    bio: row.bio || '',
     isStaff: ['admin', 'dev'].includes(row.role),
   };
 }
@@ -270,6 +285,7 @@ function mapAnnouncement(row, extras = {}) {
       username: row.author_username || row.username,
       displayName: row.author_display || row.display_name || row.author_username,
       role: row.author_role || 'user',
+      avatarUrl: row.author_avatar || row.avatar_url || null,
     },
     reactions: extras.reactions || {},
     myReactions: extras.myReactions || [],
@@ -538,7 +554,7 @@ function registerIpc() {
       const detail = err && err.code ? ` [${err.code}]` : '';
       return {
         ok: false,
-        error: `Error de conexión con la base de datos (malvinas-db)${detail}. ¿MySQL está corriendo?`,
+        error: `Error de conexión con la base de datos (malvinas)${detail}. ¿MySQL está corriendo?`,
       };
     }
   });
@@ -890,7 +906,7 @@ function registerIpc() {
       let rows;
       try {
         const [r] = await dbPool.execute(
-          `SELECT c.*, u.username, u.display_name, u.role
+          `SELECT c.*, u.username, u.display_name, u.role, u.avatar_url
            FROM announcement_comments c
            JOIN users u ON u.id = c.user_id
            WHERE c.announcement_id = ?
@@ -919,6 +935,7 @@ function registerIpc() {
             username: r.username,
             displayName: r.display_name || r.username,
             role: r.role,
+            avatarUrl: r.avatar_url || null,
           },
         })),
       };
@@ -1032,6 +1049,449 @@ function registerIpc() {
   ipcMain.handle('clipboard:copy', (_e, text) => {
     clipboard.writeText(String(text).slice(0, 500));
     return true;
+  });
+
+
+  /* ───────── Store packs ───────── */
+
+  ipcMain.handle('store:list', async () => {
+    try {
+      const [rows] = await dbPool.execute(
+        `SELECT id, name, description, price, icon, active, created_at, updated_at
+         FROM store_packs WHERE active = 1 ORDER BY id ASC`
+      );
+      return {
+        ok: true,
+        data: rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description || '',
+          price: Number(r.price),
+          icon: r.icon || 'shield',
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        })),
+      };
+    } catch (err) {
+      console.error('store:list', err);
+      return {
+        ok: false,
+        data: [],
+        error:
+          err && err.code === 'ER_NO_SUCH_TABLE'
+            ? 'Falta la tabla store_packs. Ejecutá sql/migrate-store-tickets.sql'
+            : 'No se pudieron cargar los packs',
+      };
+    }
+  });
+
+  ipcMain.handle('store:create', async (_e, payload = {}) => {
+    try {
+      const me = await requireStaff();
+      if (!me) return { ok: false, error: 'Solo staff puede crear packs' };
+      const name = String(payload.name || '').trim().slice(0, 120);
+      const description = String(payload.description || '').trim().slice(0, 2000);
+      const price = Number(payload.price);
+      const icon = String(payload.icon || 'shield').trim().slice(0, 32);
+      if (!name || !Number.isFinite(price) || price < 0) {
+        return { ok: false, error: 'Nombre y precio válidos son obligatorios' };
+      }
+      const [result] = await dbPool.execute(
+        `INSERT INTO store_packs (name, description, price, icon, created_by) VALUES (?, ?, ?, ?, ?)`,
+        [name, description, price, icon, me.id]
+      );
+      return { ok: true, id: result.insertId };
+    } catch (err) {
+      console.error('store:create', err);
+      return { ok: false, error: 'No se pudo crear el pack' };
+    }
+  });
+
+  ipcMain.handle('store:update', async (_e, payload = {}) => {
+    try {
+      const me = await requireStaff();
+      if (!me) return { ok: false, error: 'Solo staff puede editar packs' };
+      const id = Number(payload.id);
+      if (!id) return { ok: false, error: 'Pack inválido' };
+      const name = String(payload.name || '').trim().slice(0, 120);
+      const description = String(payload.description || '').trim().slice(0, 2000);
+      const price = Number(payload.price);
+      const icon = String(payload.icon || 'shield').trim().slice(0, 32);
+      if (!name || !Number.isFinite(price) || price < 0) {
+        return { ok: false, error: 'Nombre y precio válidos son obligatorios' };
+      }
+      const [result] = await dbPool.execute(
+        `UPDATE store_packs SET name = ?, description = ?, price = ?, icon = ? WHERE id = ? AND active = 1`,
+        [name, description, price, icon, id]
+      );
+      if (result.affectedRows === 0) return { ok: false, error: 'Pack no encontrado' };
+      return { ok: true };
+    } catch (err) {
+      console.error('store:update', err);
+      return { ok: false, error: 'No se pudo actualizar el pack' };
+    }
+  });
+
+  ipcMain.handle('store:delete', async (_e, { id } = {}) => {
+    try {
+      const me = await requireStaff();
+      if (!me) return { ok: false, error: 'Solo staff puede eliminar packs' };
+      const packId = Number(id);
+      if (!packId) return { ok: false, error: 'Pack inválido' };
+      // soft delete
+      const [result] = await dbPool.execute(
+        `UPDATE store_packs SET active = 0 WHERE id = ?`,
+        [packId]
+      );
+      if (result.affectedRows === 0) return { ok: false, error: 'Pack no encontrado' };
+      return { ok: true };
+    } catch (err) {
+      console.error('store:delete', err);
+      return { ok: false, error: 'No se pudo eliminar el pack' };
+    }
+  });
+
+  /* ───────── Tickets ───────── */
+
+  function mapTicketRow(r) {
+    return {
+      id: r.id,
+      userId: r.user_id,
+      subject: r.subject,
+      status: r.status,
+      claimedBy: r.claimed_by,
+      claimedName: r.claimed_display || r.claimed_username || null,
+      authorName: r.author_display || r.author_username || null,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    };
+  }
+
+  ipcMain.handle('tickets:list', async () => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión', data: [] };
+      const isStaff = ['admin', 'dev'].includes(me.role);
+
+      let rows;
+      if (isStaff) {
+        const [r] = await dbPool.execute(
+          `SELECT t.*,
+                  u.username AS author_username,
+                  u.display_name AS author_display,
+                  c.username AS claimed_username,
+                  c.display_name AS claimed_display
+           FROM tickets t
+           JOIN users u ON u.id = t.user_id
+           LEFT JOIN users c ON c.id = t.claimed_by
+           ORDER BY FIELD(t.status, 'Abierto', 'En Proceso', 'Cerrado'), t.updated_at DESC
+           LIMIT 200`
+        );
+        rows = r;
+      } else {
+        const [r] = await dbPool.execute(
+          `SELECT t.*,
+                  u.username AS author_username,
+                  u.display_name AS author_display,
+                  c.username AS claimed_username,
+                  c.display_name AS claimed_display
+           FROM tickets t
+           JOIN users u ON u.id = t.user_id
+           LEFT JOIN users c ON c.id = t.claimed_by
+           WHERE t.user_id = ?
+           ORDER BY t.updated_at DESC
+           LIMIT 100`,
+          [me.id]
+        );
+        rows = r;
+      }
+      return { ok: true, data: rows.map(mapTicketRow) };
+    } catch (err) {
+      console.error('tickets:list', err);
+      return {
+        ok: false,
+        data: [],
+        error:
+          err && err.code === 'ER_NO_SUCH_TABLE'
+            ? 'Falta la tabla tickets. Ejecutá sql/migrate-store-tickets.sql'
+            : 'No se pudieron cargar los tickets',
+      };
+    }
+  });
+
+  ipcMain.handle('tickets:create', async (_e, payload = {}) => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión' };
+      const subject = String(payload.subject || '').trim().slice(0, 200);
+      const message = String(payload.message || '').trim().slice(0, 2000);
+      if (!subject || !message) return { ok: false, error: 'Asunto y mensaje son obligatorios' };
+
+      const [openRows] = await dbPool.execute(
+        `SELECT COUNT(*) AS cnt FROM tickets WHERE user_id = ? AND status != 'Cerrado'`,
+        [me.id]
+      );
+      if (Number(openRows[0].cnt) >= 3) {
+        return { ok: false, error: 'Máximo 3 tickets abiertos a la vez' };
+      }
+
+      const conn = await dbPool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const [result] = await conn.execute(
+          `INSERT INTO tickets (user_id, subject, status) VALUES (?, ?, 'Abierto')`,
+          [me.id, subject]
+        );
+        const ticketId = result.insertId;
+        await conn.execute(
+          `INSERT INTO ticket_messages (ticket_id, user_id, content) VALUES (?, ?, ?)`,
+          [ticketId, me.id, message]
+        );
+        await conn.commit();
+        return { ok: true, id: ticketId };
+      } catch (e) {
+        await conn.rollback();
+        throw e;
+      } finally {
+        conn.release();
+      }
+    } catch (err) {
+      console.error('tickets:create', err);
+      return { ok: false, error: 'No se pudo crear el ticket' };
+    }
+  });
+
+  ipcMain.handle('tickets:claim', async (_e, { id } = {}) => {
+    try {
+      const me = await requireStaff();
+      if (!me) return { ok: false, error: 'Solo staff puede reclamar tickets' };
+      const ticketId = Number(id);
+      if (!ticketId) return { ok: false, error: 'Ticket inválido' };
+      const [rows] = await dbPool.execute('SELECT * FROM tickets WHERE id = ? LIMIT 1', [ticketId]);
+      if (!rows.length) return { ok: false, error: 'Ticket no encontrado' };
+      if (rows[0].status === 'Cerrado') return { ok: false, error: 'El ticket ya está cerrado' };
+      await dbPool.execute(
+        `UPDATE tickets SET claimed_by = ?, status = 'En Proceso' WHERE id = ?`,
+        [me.id, ticketId]
+      );
+      return { ok: true };
+    } catch (err) {
+      console.error('tickets:claim', err);
+      return { ok: false, error: 'No se pudo reclamar el ticket' };
+    }
+  });
+
+  ipcMain.handle('tickets:close', async (_e, { id } = {}) => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión' };
+      const ticketId = Number(id);
+      if (!ticketId) return { ok: false, error: 'Ticket inválido' };
+      const [rows] = await dbPool.execute('SELECT * FROM tickets WHERE id = ? LIMIT 1', [ticketId]);
+      if (!rows.length) return { ok: false, error: 'Ticket no encontrado' };
+      const t = rows[0];
+      const isStaff = ['admin', 'dev'].includes(me.role);
+      if (!isStaff && t.user_id !== me.id) return { ok: false, error: 'Sin permiso' };
+      await dbPool.execute(`UPDATE tickets SET status = 'Cerrado' WHERE id = ?`, [ticketId]);
+      return { ok: true };
+    } catch (err) {
+      console.error('tickets:close', err);
+      return { ok: false, error: 'No se pudo cerrar el ticket' };
+    }
+  });
+
+  ipcMain.handle('tickets:messages', async (_e, { id } = {}) => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión', data: [] };
+      const ticketId = Number(id);
+      if (!ticketId) return { ok: false, data: [] };
+
+      const [tickets] = await dbPool.execute('SELECT * FROM tickets WHERE id = ? LIMIT 1', [ticketId]);
+      if (!tickets.length) return { ok: false, error: 'Ticket no encontrado', data: [] };
+      const t = tickets[0];
+      const isStaff = ['admin', 'dev'].includes(me.role);
+      if (!isStaff && t.user_id !== me.id) return { ok: false, error: 'Sin permiso', data: [] };
+
+      const [rows] = await dbPool.execute(
+        `SELECT m.*, u.username, u.display_name, u.role, u.avatar_url
+         FROM ticket_messages m
+         JOIN users u ON u.id = m.user_id
+         WHERE m.ticket_id = ?
+         ORDER BY m.created_at ASC
+         LIMIT 500`,
+        [ticketId]
+      );
+
+      return {
+        ok: true,
+        data: rows.map((r) => ({
+          id: r.id,
+          content: r.content,
+          mediaType: r.media_type || 'none',
+          mediaUrl: toClientMediaUrl(r.media_url),
+          mediaName: r.media_name || null,
+          createdAt: r.created_at,
+          isMine: r.user_id === me.id,
+          author: {
+            id: r.user_id,
+            username: r.username,
+            displayName: r.display_name || r.username,
+            role: r.role,
+            avatarUrl: r.avatar_url || null,
+          },
+        })),
+      };
+    } catch (err) {
+      console.error('tickets:messages', err);
+      return { ok: false, data: [], error: 'No se pudieron cargar los mensajes' };
+    }
+  });
+
+  ipcMain.handle('tickets:sendMessage', async (_e, payload = {}) => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión' };
+      const ticketId = Number(payload.id);
+      const content = String(payload.content || '').trim().slice(0, 2000);
+      const mediaType = ['none', 'image', 'video', 'file'].includes(payload.mediaType)
+        ? payload.mediaType
+        : 'none';
+      let mediaUrl = payload.mediaUrl ? String(payload.mediaUrl).slice(0, 512) : null;
+      const mediaName = payload.mediaName ? String(payload.mediaName).slice(0, 255) : null;
+      if (mediaUrl && mediaUrl.startsWith('annmedia://')) {
+        mediaUrl = path.basename(mediaUrl.replace('annmedia://', ''));
+      }
+      if (!ticketId) return { ok: false, error: 'Ticket inválido' };
+      if (!content && mediaType === 'none') return { ok: false, error: 'Mensaje vacío' };
+
+      const [tickets] = await dbPool.execute('SELECT * FROM tickets WHERE id = ? LIMIT 1', [ticketId]);
+      if (!tickets.length) return { ok: false, error: 'Ticket no encontrado' };
+      const t = tickets[0];
+      const isStaff = ['admin', 'dev'].includes(me.role);
+      if (!isStaff && t.user_id !== me.id) return { ok: false, error: 'Sin permiso' };
+      if (t.status === 'Cerrado') return { ok: false, error: 'El ticket está cerrado' };
+
+      const [result] = await dbPool.execute(
+        `INSERT INTO ticket_messages (ticket_id, user_id, content, media_type, media_url, media_name)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [ticketId, me.id, content || '', mediaType, mediaUrl, mediaName]
+      );
+      await dbPool.execute(`UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [ticketId]);
+      return { ok: true, id: result.insertId };
+    } catch (err) {
+      console.error('tickets:sendMessage', err);
+      return { ok: false, error: 'No se pudo enviar el mensaje' };
+    }
+  });
+
+  ipcMain.handle('tickets:pickMedia', async () => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión' };
+      const result = await dialog.showOpenDialog(win, {
+        title: 'Adjuntar archivo',
+        properties: ['openFile'],
+        filters: [
+          { name: 'Archivos', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm', 'mov', 'zip', 'rar', 'txt', 'log'] },
+        ],
+      });
+      if (result.canceled || !result.filePaths?.[0]) return { ok: false, cancelled: true };
+      const src = result.filePaths[0];
+      const ext = path.extname(src).toLowerCase() || '.bin';
+      const key = `ticket-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+      ensureMediaDir();
+      fs.copyFileSync(src, path.join(mediaDir(), key));
+      let mediaType = 'file';
+      if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'].includes(ext)) mediaType = 'image';
+      else if (['.mp4', '.webm', '.mov', '.mkv', '.avi'].includes(ext)) mediaType = 'video';
+      return {
+        ok: true,
+        mediaType,
+        mediaUrl: key,
+        mediaName: path.basename(src),
+        clientUrl: `annmedia://${key}`,
+      };
+    } catch (err) {
+      console.error('tickets:pickMedia', err);
+      return { ok: false, error: 'No se pudo adjuntar el archivo' };
+    }
+  });
+
+
+  /* ───────── Profile ───────── */
+
+  ipcMain.handle('profile:update', async (_e, payload = {}) => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión' };
+
+      const displayName = String(payload.displayName ?? me.display_name ?? me.username)
+        .trim()
+        .slice(0, 48);
+      const bio = String(payload.bio ?? me.bio ?? '')
+        .trim()
+        .slice(0, 500);
+      const password = String(payload.currentPassword || '');
+
+      if (!displayName) return { ok: false, error: 'El apodo no puede estar vacío' };
+
+      const nameChanged =
+        displayName !== (me.display_name || me.username);
+
+      if (nameChanged) {
+        if (!password) return { ok: false, error: 'Ingresá tu contraseña para cambiar el apodo' };
+        const match = await bcrypt.compare(password, me.password);
+        if (!match) return { ok: false, error: 'Contraseña incorrecta' };
+      }
+
+      try {
+        await dbPool.execute(
+          'UPDATE users SET display_name = ?, bio = ? WHERE id = ?',
+          [displayName, bio || null, me.id]
+        );
+      } catch (err) {
+        if (err && err.code === 'ER_BAD_FIELD_ERROR') {
+          await dbPool.execute('UPDATE users SET display_name = ? WHERE id = ?', [
+            displayName,
+            me.id,
+          ]);
+        } else throw err;
+      }
+
+      const user = publicUser(await userById(me.id));
+      return { ok: true, user };
+    } catch (err) {
+      console.error('profile:update', err);
+      return { ok: false, error: 'No se pudo actualizar el perfil' };
+    }
+  });
+
+  ipcMain.handle('profile:setAvatar', async () => {
+    try {
+      const me = await requireUser();
+      if (!me) return { ok: false, error: 'Necesitás iniciar sesión' };
+
+      const result = await dialog.showOpenDialog(win, {
+        title: 'Elegir avatar',
+        properties: ['openFile'],
+        filters: [{ name: 'Imagen', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
+      });
+      if (result.canceled || !result.filePaths?.[0]) return { ok: false, cancelled: true };
+
+      const src = result.filePaths[0];
+      const ext = path.extname(src).toLowerCase() || '.png';
+      const key = `avatar-${me.id}-${Date.now()}${ext}`;
+      ensureMediaDir();
+      fs.copyFileSync(src, path.join(mediaDir(), key));
+
+      await dbPool.execute('UPDATE users SET avatar_url = ? WHERE id = ?', [key, me.id]);
+      const user = publicUser(await userById(me.id));
+      return { ok: true, user };
+    } catch (err) {
+      console.error('profile:setAvatar', err);
+      return { ok: false, error: 'No se pudo guardar el avatar' };
+    }
   });
 
   ipcMain.on('win:minimize', () => win && win.minimize());

@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Malvinas 1982 Launcher</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth-announcements.css">
 </head>
 <body>
 
@@ -78,25 +79,55 @@
       <button class="nav-btn" data-view="rules"><svg class="i"><use href="#i-book"/></svg><span>Reglamento</span></button>
       <button class="nav-btn" data-view="community"><svg class="i"><use href="#i-users"/></svg><span>Comunidad</span></button>
       <button class="nav-btn" data-view="settings"><svg class="i"><use href="#i-sliders"/></svg><span>Ajustes</span></button>
-      <button class="nav-btn" data-view="news"><svg class="i"><use href="#i-book"/></svg><span>Anuncios</span></button>
+      <button class="nav-btn" data-view="news"><svg class="i"><use href="#i-book"/></svg><span>Anuncios</span><span class="nav-badge" id="newsBadge" hidden>0</span></button>
     </nav>
 
     <div class="side-bottom">
-      <div class="user-profile-box" id="userBox">
-        <div class="user-info" id="userInfoDisplay">
-          <span class="user-guest">No conectado</span>
-        </div>
-        <button class="btn-sm-auth" id="authModalBtn">Perfil</button>
-      </div>
-
       <div class="side-status" id="sideStatus"><i class="dot"></i><span>Consultando…</span></div>
-      <div class="side-ver" id="appVer">v2.1.0 Pro</div>
+      <div class="side-ver" id="appVer" title="Click 5 veces (solo dev)">v1.0.0</div>
     </div>
   </aside>
 
   <!-- CONTENIDO -->
   <main class="main">
     <header class="titlebar">
+      <div class="titlebar-spacer"></div>
+      <div class="titlebar-user" id="titlebarUser">
+        <!-- filled by JS -->
+        <button type="button" class="tb-login-btn" id="tbLoginBtn">INICIAR SESIÓN</button>
+      </div>
+      <div class="titlebar-menu-wrap">
+        <button type="button" class="tb-menu-btn" id="tbMenuBtn" title="Menú" aria-haspopup="true" aria-expanded="false">
+          <span class="burger" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+        <div class="tb-dropdown" id="tbDropdown" hidden>
+          <button type="button" class="tb-dd-item" data-nav="profile">
+            <svg class="i"><use href="#i-user"/></svg><span>Mi perfil</span>
+          </button>
+          <button type="button" class="tb-dd-item" data-nav="settings">
+            <svg class="i"><use href="#i-sliders"/></svg><span>Ajustes</span>
+          </button>
+          <button type="button" class="tb-dd-item" data-nav="tickets">
+            <svg class="i"><use href="#i-ticket"/></svg><span>Soporte</span>
+          </button>
+          <button type="button" class="tb-dd-item" data-nav="news">
+            <svg class="i"><use href="#i-book"/></svg><span>Anuncios</span>
+          </button>
+          <button type="button" class="tb-dd-item" data-nav="store">
+            <svg class="i"><use href="#i-shopping"/></svg><span>Tienda VIP</span>
+          </button>
+          <div class="tb-dd-sep"></div>
+          <button type="button" class="tb-dd-item" id="tbDevPanelBtn" hidden>
+            <svg class="i"><use href="#i-star"/></svg><span>Panel desarrollador</span>
+          </button>
+          <button type="button" class="tb-dd-item danger" id="tbLogoutBtn" hidden>
+            <svg class="i"><use href="#i-x"/></svg><span>Cerrar sesión</span>
+          </button>
+          <button type="button" class="tb-dd-item accent" id="tbLoginMenuBtn">
+            <svg class="i"><use href="#i-user"/></svg><span>Iniciar sesión</span>
+          </button>
+        </div>
+      </div>
       <div class="winctl">
         <button id="btnMin" title="Minimizar"><svg class="i"><use href="#i-min"/></svg></button>
         <button id="btnMax" title="Maximizar / Restaurar"><svg class="i"><use href="#i-max"/></svg></button>
@@ -221,41 +252,48 @@
       </div>
     </section>
 
-    <!-- MI PERFIL -->
+    <!-- MI PERFIL (estilo Discord) -->
     <section class="view" id="view-profile">
       <div class="view-bg"></div>
-      <header class="view-head">
-        <div class="head-icon"><svg class="i" style="width:24px;height:24px;color:var(--accent);"><use href="#i-user"/></svg></div>
-        <div>
-          <h2>Perfil de Sobreviviente</h2>
-          <p>Personaliza tu avatar desde tu PC, apodo y credenciales.</p>
+      <div class="discord-profile" id="discordProfile">
+        <div class="dp-banner" id="profileBanner"></div>
+        <div class="dp-main">
+          <div class="dp-avatar-wrap" id="profileAvatarWrap" title="Cambiar avatar">
+            <div class="dp-avatar" id="profileAvatarPreview">
+              <span id="profileAvatarInitial">?</span>
+            </div>
+            <div class="dp-avatar-overlay" aria-hidden="true">
+              <svg class="i" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </div>
+            <input type="file" id="profileAvatarFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+          </div>
+          <div class="dp-identity">
+            <div class="dp-name-row">
+              <h2 class="dp-display" id="profileDisplayLabel">Usuario</h2>
+              <span class="dp-role-pill" id="profileRolePill">user</span>
+            </div>
+            <div class="dp-username" id="profileUsernameLabel">@user</div>
+          </div>
+          <button type="button" class="btn-primary sm" id="saveProfileBtn">Guardar perfil</button>
         </div>
-      </header>
-      <div class="profile-container">
-        <div class="card pad profile-card-box">
-          <div class="profile-avatar-section">
-            <div class="profile-avatar-preview" id="profileAvatarPreview">
-              <span id="profileAvatarInitial">M</span>
-            </div>
-            <div class="profile-avatar-inputs">
-              <label>Avatar local (Imagen desde PC)</label>
-              <input class="input" id="profileAvatarFile" type="file" accept="image/*">
-            </div>
+        <div class="dp-card">
+          <div class="dp-section">
+            <div class="dp-label">APODO</div>
+            <input class="input" id="profileDisplayName" maxlength="48" placeholder="Cómo te ven los demás" autocomplete="off">
           </div>
-          <div class="form-row">
-            <label>Nombre de Usuario (Estático / Único)</label>
-            <input class="input" id="profileUsername" disabled style="opacity:0.7;">
+          <div class="dp-section">
+            <div class="dp-label">USUARIO</div>
+            <input class="input" id="profileUsername" disabled>
           </div>
-          <div class="form-row">
-            <label>Apodo en el Servidor (Puedes cambiarlo 1 sola vez)</label>
-            <input class="input" id="profileDisplayName" placeholder="Tu apodo público">
+          <div class="dp-section">
+            <div class="dp-label">BIOGRAFÍA</div>
+            <textarea class="input dp-bio" id="profileBio" rows="4" maxlength="500" placeholder="Contá algo sobre vos…"></textarea>
+            <div class="dp-bio-count"><span id="profileBioCount">0</span>/500</div>
           </div>
-          <div class="form-row" id="passwordChangeBox">
-            <label>Contraseña actual (Requerida solo para cambiar tu apodo)</label>
-            <input class="input" id="profileCurrentPassword" type="password" placeholder="••••••••">
-          </div>
-          <div style="margin-top: 16px;">
-            <button type="button" class="btn-primary" id="saveProfileBtn">Guardar Cambios de Perfil</button>
+          <div class="dp-section" id="passwordChangeBox">
+            <div class="dp-label">CONFIRMAR CON CONTRASEÑA</div>
+            <input class="input" id="profileCurrentPassword" type="password" placeholder="Solo si cambiás el apodo" autocomplete="current-password">
+            <small class="muted">La contraseña solo se pide al cambiar el apodo.</small>
           </div>
         </div>
       </div>
@@ -399,8 +437,9 @@
       </header>
       <div class="news-container feed-container">
         <div class="news-action-bar feed-toolbar" id="newsActionBar" hidden>
-          <button type="button" class="btn-primary" id="openPostModalBtn">
-            <span>＋ Crear publicación</span>
+          <button type="button" class="btn-compose" id="openPostModalBtn">
+            <span class="compose-plus">＋</span>
+            <span>Crear publicación</span>
           </button>
         </div>
         <div class="announcements-grid feed-list" id="announcementsGrid">
@@ -483,9 +522,134 @@
     </div>
     <div class="modal-foot" style="display:flex; gap:8px; align-items:center;">
       <input type="file" id="chatMediaFile" style="display:none;" accept="image/*,video/*,.zip,.rar">
-      <button type="button" class="btn-ghost" id="attachMediaBtn" title="Adjuntar archivo/imagen/video">📎</button>
+      <button type="button" class="btn-ghost" id="attachMediaBtn" title="Adjuntar">📎</button>
       <input class="input" id="chatInputMessage" placeholder="Escribe un mensaje..." style="flex:1;">
       <button type="button" class="btn-primary" id="sendChatMessageBtn">Enviar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- AUTH GATE -->
+<div class="auth-gate" id="authGate" hidden>
+  <div class="auth-gate-bar">
+    <span class="auth-gate-brand">MALVINAS 1982</span>
+    <div class="auth-gate-win">
+      <button type="button" id="gateMin" title="Minimizar">—</button>
+      <button type="button" class="close" id="gateClose" title="Cerrar">✕</button>
+    </div>
+  </div>
+  <div class="auth-gate-card">
+    <img class="auth-gate-logo" data-icon src="../assets/icon.png" alt="">
+    <h1 id="authGateTitle">Iniciar sesión</h1>
+    <p class="auth-gate-sub">Entrá con tu cuenta para jugar, ver el feed y abrir tickets.</p>
+    <div class="auth-gate-error" id="authGateError" hidden></div>
+    <div class="form-row">
+      <label for="authGateUsername">Usuario o email</label>
+      <input class="input" id="authGateUsername" autocomplete="username" maxlength="120">
+    </div>
+    <div class="form-row" id="authGateEmailRow" hidden>
+      <label for="authGateEmail">Email</label>
+      <input class="input" id="authGateEmail" type="email" autocomplete="email" maxlength="120">
+    </div>
+    <div class="form-row">
+      <label for="authGatePassword">Contraseña</label>
+      <input class="input" id="authGatePassword" type="password" autocomplete="current-password">
+    </div>
+    <button type="button" class="btn-primary auth-gate-submit" id="authGateSubmit">Entrar</button>
+    <button type="button" class="btn-link" id="authGateToggle" style="width:100%;text-align:center;margin-top:4px;">¿No tenés cuenta? Registrate</button>
+  </div>
+</div>
+
+<!-- Modal crear/editar anuncio -->
+<div class="modal post-modal" id="postModal" hidden>
+  <div class="modal-box post-box" style="width:min(520px, 94vw); max-height:90vh; overflow:auto;">
+    <div class="modal-head">
+      <h3 id="postModalTitle">Nueva publicación</h3>
+      <button type="button" class="icon-btn" id="closePostModal"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Título</label>
+        <input class="input" id="postTitle" maxlength="200" placeholder="Título del anuncio">
+      </div>
+      <div class="form-row">
+        <label>Contenido</label>
+        <textarea class="input" id="postContent" rows="5" maxlength="8000" placeholder="Escribí el mensaje…"></textarea>
+      </div>
+      <div class="form-row two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label>Categoría</label>
+          <input class="input" id="postCategory" maxlength="64" value="Novedad">
+        </div>
+        <div>
+          <label>Secciones (separadas por coma)</label>
+          <input class="input" id="postSections" placeholder="ACTUALIZACION, CHERNARUS">
+        </div>
+      </div>
+      <div class="form-row inline">
+        <div><label>Fijar publicación</label></div>
+        <label class="switch"><input type="checkbox" id="postPinned"><i></i></label>
+      </div>
+      <div class="compose-media-panel">
+        <div class="compose-media-actions">
+          <button type="button" class="btn-media icon-only" id="pickImageBtn" title="Imagen">📷</button>
+          <button type="button" class="btn-media icon-only" id="pickVideoBtn" title="Video">🎬</button>
+          <button type="button" class="btn-media icon-only ghost" id="clearMediaBtn" title="Quitar">✕</button>
+        </div>
+        <input type="hidden" id="postMediaType" value="none">
+        <input type="hidden" id="postMediaUrl" value="">
+        <input type="hidden" id="postMediaName" value="">
+        <div class="compose-media-preview" id="postMediaPreview" hidden>
+          <img id="postMediaPreviewImg" hidden alt="">
+          <video id="postMediaPreviewVid" hidden controls></video>
+          <span class="compose-media-name" id="postMediaLabel"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-primary" id="postSubmit">Publicar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Panel desarrollador (color UI) -->
+<div class="modal" id="devPanelModal" hidden>
+  <div class="modal-box" style="width:min(420px, 94vw);">
+    <div class="modal-head">
+      <h3>Panel desarrollador</h3>
+      <button type="button" class="icon-btn" id="closeDevPanel"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" style="font-size:12px;line-height:1.4;margin-bottom:8px;">
+        Color de acento de la UI (estilo FL Studio). Los contrastes de botones y brillos se calculan solos.
+      </p>
+      <div class="form-row">
+        <label>Color de acento</label>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input type="color" id="devAccentPicker" value="#2563eb" style="width:48px;height:34px;border:0;background:none;cursor:pointer;">
+          <input class="input" id="devAccentHex" maxlength="7" placeholder="#2563eb" style="flex:1;font-family:var(--font-mono);">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Vista previa</label>
+        <div class="dev-preview" id="devPreview">
+          <button type="button" class="btn-primary" style="pointer-events:none;">Botón primario</button>
+          <span class="chip" style="margin-left:8px;">CHIP</span>
+          <span class="pill on" style="margin-left:8px;"><i class="pulse"></i> ONLINE</span>
+        </div>
+      </div>
+      <div class="form-row inline">
+        <div>
+          <label>Restablecer color</label>
+          <small class="muted">Vuelve al azul por defecto (#2563eb)</small>
+        </div>
+        <button type="button" class="btn-ghost sm" id="devAccentReset">Reset</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-primary" id="devAccentSave">Aplicar y guardar</button>
     </div>
   </div>
 </div>

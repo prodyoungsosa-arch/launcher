@@ -1,5 +1,5 @@
 -- Mejoras red social: emojis libres + respuestas a comentarios
-USE `malvinas-db`;
+USE `malvinas`;
 
 -- Reacciones: cualquier emoji (no solo like/fire/…)
 ALTER TABLE announcement_reactions

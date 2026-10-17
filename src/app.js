@@ -8,6 +8,91 @@
   const esc = (s) =>
     String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  /* ───── Color de acento dinámico (FL-style) ───── */
+
+  function clamp01(n) {
+    return Math.max(0, Math.min(1, n));
+  }
+
+  function hexToRgb(hex) {
+    const h = String(hex || '').replace('#', '').trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    };
+  }
+
+  function rgbToHex(r, g, b) {
+    const to = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+    return `#${to(r)}${to(g)}${to(b)}`;
+  }
+
+  /** Luminancia relativa WCAG */
+  function relLuminance({ r, g, b }) {
+    const lin = (c) => {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  }
+
+  function contrastText(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return '#ffffff';
+    // umbral tipo FL: colores claros → texto oscuro
+    return relLuminance(rgb) > 0.45 ? '#0b1220' : '#ffffff';
+  }
+
+  function mixRgb(a, b, t) {
+    return {
+      r: a.r + (b.r - a.r) * t,
+      g: a.g + (b.g - a.g) * t,
+      b: a.b + (b.b - a.b) * t,
+    };
+  }
+
+  function lightenHex(hex, amount) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    const mixed = mixRgb(rgb, { r: 255, g: 255, b: 255 }, clamp01(amount));
+    return rgbToHex(mixed.r, mixed.g, mixed.b);
+  }
+
+  function darkenHex(hex, amount) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    const mixed = mixRgb(rgb, { r: 0, g: 0, b: 0 }, clamp01(amount));
+    return rgbToHex(mixed.r, mixed.g, mixed.b);
+  }
+
+  function normalizeHex(input) {
+    let s = String(input || '').trim();
+    if (!s.startsWith('#')) s = `#${s}`;
+    if (/^#[0-9A-Fa-f]{3}$/.test(s)) {
+      s = `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`;
+    }
+    if (!/^#[0-9A-Fa-f]{6}$/.test(s)) return null;
+    return s.toLowerCase();
+  }
+
+  function applyAccent(hex) {
+    const color = normalizeHex(hex) || '#2563eb';
+    const hover = lightenHex(color, 0.18);
+    const deep = darkenHex(color, 0.22);
+    const rgb = hexToRgb(color);
+    const glow = rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28)` : 'rgba(37, 99, 235, 0.25)';
+    const on = contrastText(color);
+    const root = document.documentElement;
+    root.style.setProperty('--accent', color);
+    root.style.setProperty('--accent-hover', hover);
+    root.style.setProperty('--accent-deep', deep);
+    root.style.setProperty('--accent-glow', glow);
+    root.style.setProperty('--on-accent', on);
+    // flagline / focus rings pick it up via --accent
+  }
+
   const REACTIONS = [
     { id: 'like', label: '👍' },
     { id: 'fire', label: '🔥' },
@@ -23,14 +108,11 @@
   let editingAnnouncementId = null;
   let expandedComments = new Set();
 
-  // Estado global para Tienda y Tickets
-  let storePacks = [
-    { id: 1, name: 'Pack Soldado Raso', description: 'Arma secundaria, 3 cargadores y kit médico básico.', price: 5.00, icon: 'shield' },
-    { id: 2, name: 'Pack Comando Táctico', description: 'Fusil de asalto, chaleco nivel 3 y brújula militar.', price: 12.50, icon: 'lock' },
-    { id: 3, name: 'Membresía VIP Mensual', description: 'Acceso prioritario al servidor, kit VIP diario y color de chat exclusivo.', price: 20.00, icon: 'star' }
-  ];
+  // Cache local (persistido en MySQL)
+  let storePacks = [];
   let myTickets = [];
   let activeChatTicketId = null;
+  let pendingTicketMedia = null;
 
   function shuffle(arr) {
     const a = [...arr];
@@ -89,29 +171,49 @@
   }
 
   function updateUserUI() {
-    const display = $('#userInfoDisplay');
-    const authBtn = $('#authModalBtn');
+    const host = $('#titlebarUser');
     const newsBar = $('#newsActionBar');
-    if (!display) return;
+    const logoutBtn = $('#tbLogoutBtn');
+    const loginMenuBtn = $('#tbLoginMenuBtn');
+    const devBtn = $('#tbDevPanelBtn');
 
-    if (currentUser) {
-      const roleLabel =
-        currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'dev' ? 'Dev' : 'Sobreviviente';
-      display.innerHTML = `
-        <span class="user-logged">${esc(currentUser.displayName || currentUser.username)}</span>
-        <span class="user-role">${esc(roleLabel)}</span>`;
-      if (authBtn) authBtn.textContent = 'Salir';
-      if (newsBar) newsBar.hidden = !currentUser.isStaff && currentUser.role !== 'admin' && currentUser.role !== 'dev';
-      
-      // Actualizar datos en la vista de perfil
-      initProfileData();
-    } else {
-      display.innerHTML = `<span class="user-guest">No conectado</span>`;
-      if (authBtn) authBtn.textContent = 'Iniciar Sesión';
-      if (newsBar) newsBar.hidden = true;
+    const isStaff =
+      currentUser && (currentUser.isStaff || currentUser.role === 'admin' || currentUser.role === 'dev');
+    const isDev = currentUser && (currentUser.role === 'dev' || currentUser.role === 'admin');
+
+    if (newsBar) newsBar.hidden = !isStaff;
+    if (logoutBtn) logoutBtn.hidden = !currentUser;
+    if (loginMenuBtn) loginMenuBtn.hidden = !!currentUser;
+    if (devBtn) devBtn.hidden = !isDev;
+
+    if (host) {
+      if (currentUser) {
+        const name = currentUser.displayName || currentUser.username || 'Usuario';
+        const roleLabel =
+          currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'dev' ? 'Dev' : 'Sobreviviente';
+        const av = currentUser.avatarUrl
+          ? `<div class="tb-user-avatar"><img src="${esc(currentUser.avatarUrl)}" alt=""></div>`
+          : `<div class="tb-user-avatar" style="background:${avatarColor(name)}">${esc(initials(name))}</div>`;
+        host.innerHTML = `
+          <div class="tb-user-chip" title="${esc(name)}">
+            ${av}
+            <div class="tb-user-meta">
+              <span class="tb-user-name">${esc(name)}</span>
+              <span class="tb-user-role">${esc(roleLabel)}</span>
+            </div>
+          </div>`;
+      } else {
+        host.innerHTML = `<button type="button" class="tb-login-btn" id="tbLoginBtn">INICIAR SESIÓN</button>`;
+        $('#tbLoginBtn')?.addEventListener('click', () => {
+          showAuthGate(true);
+          setAuthMode(false);
+        });
+      }
     }
-    renderStore();
-    renderTickets();
+
+    if (currentUser) initProfileData();
+    loadStore();
+    loadTickets();
   }
 
   function setAuthMode(register) {
@@ -137,20 +239,152 @@
         if (e.key === 'Enter') submitAuth();
       });
     });
+  }
 
-    $('#authModalBtn')?.addEventListener('click', async () => {
-      if (currentUser) {
+  function closeTbMenu() {
+    const dd = $('#tbDropdown');
+    const btn = $('#tbMenuBtn');
+    if (dd) dd.hidden = true;
+    if (btn) {
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function openTbMenu() {
+    const dd = $('#tbDropdown');
+    const btn = $('#tbMenuBtn');
+    if (dd) dd.hidden = false;
+    if (btn) {
+      btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function navigateTo(view) {
+    const btn = document.querySelector(`.nav-btn[data-view="${view}"]`);
+    if (btn) btn.click();
+    else {
+      $$('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+      $$('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
+      if (view === 'news') loadAnnouncements();
+    }
+  }
+
+  function setupTitlebarMenu() {
+    $('#tbMenuBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dd = $('#tbDropdown');
+      if (!dd) return;
+      if (dd.hidden) openTbMenu();
+      else closeTbMenu();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.titlebar-menu-wrap')) closeTbMenu();
+    });
+
+    $('#tbDropdown')?.addEventListener('click', async (e) => {
+      const item = e.target.closest('.tb-dd-item');
+      if (!item) return;
+      e.stopPropagation();
+      closeTbMenu();
+
+      if (item.id === 'tbLogoutBtn') {
         await api.logout();
         currentUser = null;
         updateUserUI();
         showAuthGate(true);
         setAuthMode(false);
         toast('Sesión cerrada');
-      } else {
+        return;
+      }
+      if (item.id === 'tbLoginMenuBtn') {
         showAuthGate(true);
+        setAuthMode(false);
+        return;
+      }
+      if (item.id === 'tbDevPanelBtn') {
+        openDevPanel();
+        return;
+      }
+      const nav = item.dataset.nav;
+      if (nav) {
+        if (!currentUser && (nav === 'profile' || nav === 'tickets')) {
+          showAuthGate(true);
+          toast('Iniciá sesión para continuar', 'error');
+          return;
+        }
+        navigateTo(nav);
+      }
+    });
+
+    // Acceso oculto: 5 clicks en la versión (dev/admin o sin sesión para pruebas locales)
+    let verClicks = 0;
+    let verTimer = null;
+    $('#appVer')?.addEventListener('click', () => {
+      verClicks += 1;
+      clearTimeout(verTimer);
+      verTimer = setTimeout(() => { verClicks = 0; }, 2000);
+      if (verClicks >= 5) {
+        verClicks = 0;
+        openDevPanel();
+        toast('Panel desarrollador');
       }
     });
   }
+
+  function openDevPanel() {
+    const modal = $('#devPanelModal');
+    if (!modal) return;
+    const current = normalizeHex(SET?.accentColor) || '#2563eb';
+    if ($('#devAccentPicker')) $('#devAccentPicker').value = current;
+    if ($('#devAccentHex')) $('#devAccentHex').value = current;
+    applyAccent(current);
+    modal.hidden = false;
+  }
+
+  function setupDevPanel() {
+    const syncInputs = (hex) => {
+      const n = normalizeHex(hex);
+      if (!n) return;
+      if ($('#devAccentPicker')) $('#devAccentPicker').value = n;
+      if ($('#devAccentHex')) $('#devAccentHex').value = n;
+      applyAccent(n);
+    };
+
+    $('#closeDevPanel')?.addEventListener('click', () => {
+      $('#devPanelModal').hidden = true;
+      applyAccent(SET?.accentColor || '#2563eb');
+    });
+    $('#devPanelModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'devPanelModal') {
+        $('#devPanelModal').hidden = true;
+        applyAccent(SET?.accentColor || '#2563eb');
+      }
+    });
+    $('#devAccentPicker')?.addEventListener('input', (e) => syncInputs(e.target.value));
+    $('#devAccentHex')?.addEventListener('input', (e) => {
+      const n = normalizeHex(e.target.value);
+      if (n) {
+        if ($('#devAccentPicker')) $('#devAccentPicker').value = n;
+        applyAccent(n);
+      }
+    });
+    $('#devAccentReset')?.addEventListener('click', () => syncInputs('#2563eb'));
+    $('#devAccentSave')?.addEventListener('click', async () => {
+      const n = normalizeHex($('#devAccentHex')?.value || $('#devAccentPicker')?.value);
+      if (!n) {
+        toast('Color inválido. Usá formato #RRGGBB', 'error');
+        return;
+      }
+      applyAccent(n);
+      SET = await api.saveSettings({ ...SET, accentColor: n });
+      $('#devPanelModal').hidden = true;
+      toast(`Color aplicado: ${n}`);
+    });
+  }
+
 
   async function submitAuth() {
     const username = $('#authGateUsername')?.value.trim() || '';
@@ -194,6 +428,7 @@
       showAuthGate(false);
       toast(`¡Bienvenido, ${currentUser.displayName || currentUser.username}!`);
       await loadAnnouncements();
+      // badge se actualiza dentro de loadAnnouncements
       if ($('#authGatePassword')) $('#authGatePassword').value = '';
     } catch (err) {
       console.error('submitAuth', err);
@@ -274,7 +509,9 @@
       btn.addEventListener('click', () => {
         $$('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
         $$('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${btn.dataset.view}`));
-        if (btn.dataset.view === 'news') loadAnnouncements();
+        if (btn.dataset.view === 'news') {
+          loadAnnouncements().then(() => markAnnouncementsRead());
+        }
       });
     });
     $('#btnMin')?.addEventListener('click', () => api.minimize());
@@ -471,6 +708,7 @@
     const isLight = SET.theme === 'light';
     if (themeToggle) themeToggle.checked = isLight;
     document.body.classList.toggle('light-theme', isLight);
+    applyAccent(SET.accentColor || '#2563eb');
 
     let t = null;
     const save = (silent) => {
@@ -483,6 +721,8 @@
           extraParams: params.value,
           minimizeOnPlay: min ? min.checked : SET.minimizeOnPlay,
           theme: themeToggle?.checked ? 'light' : 'dark',
+          accentColor: SET.accentColor || '#2563eb',
+          lastAnnouncementRead: SET.lastAnnouncementRead || 0,
         });
         if (!silent) toast('Ajustes guardados');
       }, 350);
@@ -498,12 +738,28 @@
     });
   }
 
-  /* ───── Tienda VIP y Packs ───── */
+  /* ───── Tienda VIP y Packs (MySQL) ───── */
+
+  async function loadStore() {
+    try {
+      const res = await api.listPacks();
+      if (!res || !res.ok) {
+        storePacks = [];
+        if (res?.error) toast(res.error, 'error');
+      } else {
+        storePacks = res.data || [];
+      }
+    } catch (err) {
+      console.error('loadStore', err);
+      storePacks = [];
+    }
+    renderStore();
+  }
 
   function renderStore() {
     const grid = $('#storeGrid');
     if (!grid) return;
-    
+
     const addBtn = $('#openAddPackModal');
     if (addBtn && currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev')) {
       addBtn.style.display = 'inline-flex';
@@ -511,272 +767,547 @@
       addBtn.style.display = 'none';
     }
 
-    grid.innerHTML = storePacks.map(pack => `
-      <div class="store-card">
-        ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev') ? `
-          <div class="store-actions-admin">
-            <button type="button" class="icon-btn" onclick="window.editPack(${pack.id})" title="Editar"><svg class="i"><use href="#i-sliders"/></svg></button>
-            <button type="button" class="icon-btn" onclick="window.deletePack(${pack.id})" title="Eliminar" style="color:var(--bad)"><svg class="i"><use href="#i-x"/></svg></button>
-          </div>
-        ` : ''}
-        <div class="store-card-icon"><svg class="i"><use href="#i-${esc(pack.icon || 'shield')}"/></svg></div>
-        <h3>${esc(pack.name)}</h3>
-        <p>${esc(pack.description || pack.desc)}</p>
-        <div class="store-card-footer">
-          <span class="store-price">$${parseFloat(pack.price).toFixed(2)} USD</span>
-          <button type="button" class="btn-primary" onclick="window.buyPack(${pack.id})">Comprar con PayPal</button>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  window.buyPack = function(id) {
-    const pack = storePacks.find(p => p.id === id);
-    if (!pack) return;
-    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=amarootm@gmail.com&item_name=${encodeURIComponent(pack.name)}&amount=${pack.price}&currency_code=USD`;
-    api.openExternal(paypalUrl);
-    toast(`Redirigiendo a PayPal para abonar $${pack.price} USD...`);
-  };
-
-  window.deletePack = function(id) {
-    storePacks = storePacks.filter(p => p.id !== id);
-    renderStore();
-    toast('Pack eliminado correctamente.');
-  };
-
-  window.editPack = function(id) {
-    const pack = storePacks.find(p => p.id === id);
-    if (!pack) return;
-    $('#packEditId').value = pack.id;
-    $('#packNameInput').value = pack.name;
-    $('#packDescInput').value = pack.description || pack.desc;
-    $('#packPriceInput').value = pack.price;
-    $('#packIconSelect').value = pack.icon || 'shield';
-    $('#packModal').hidden = false;
-  };
-
-  $('#openAddPackModal')?.addEventListener('click', () => {
-    $('#packEditId').value = '';
-    $('#packNameInput').value = '';
-    $('#packDescInput').value = '';
-    $('#packPriceInput').value = '';
-    $('#packModal').hidden = false;
-  });
-
-  $('#closePackModal')?.addEventListener('click', () => {
-    $('#packModal').hidden = true;
-  });
-
-  $('#savePackBtn')?.addEventListener('click', () => {
-    const editId = $('#packEditId').value;
-    const name = $('#packNameInput').value.trim();
-    const description = $('#packDescInput').value.trim();
-    const price = parseFloat($('#packPriceInput').value);
-    const icon = $('#packIconSelect').value;
-
-    if (!name || isNaN(price)) {
-      toast('Completá los campos correctamente.', 'error');
+    if (!storePacks.length) {
+      grid.innerHTML = `<div class="card pad" style="text-align:center;color:var(--muted);grid-column:1/-1;">No hay packs disponibles.</div>`;
       return;
     }
 
-    if (editId) {
-      const pack = storePacks.find(p => p.id == editId);
-      if (pack) { pack.name = name; pack.description = description; pack.desc = description; pack.price = price; pack.icon = icon; }
-    } else {
-      storePacks.push({ id: Date.now(), name, description, desc: description, price, icon });
+    grid.innerHTML = storePacks
+      .map(
+        (pack) => `
+      <div class="store-card" data-pack-id="${pack.id}">
+        ${
+          currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev')
+            ? `
+          <div class="store-actions-admin">
+            <button type="button" class="icon-btn" data-store-action="edit" data-pack-id="${pack.id}" title="Editar"><svg class="i"><use href="#i-sliders"/></svg></button>
+            <button type="button" class="icon-btn" data-store-action="delete" data-pack-id="${pack.id}" title="Eliminar" style="color:var(--bad)"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>`
+            : ''
+        }
+        <div class="store-card-icon"><svg class="i"><use href="#i-${esc(pack.icon || 'shield')}"/></svg></div>
+        <h3>${esc(pack.name)}</h3>
+        <p>${esc(pack.description || '')}</p>
+        <div class="store-card-footer">
+          <span class="store-price">$${Number(pack.price).toFixed(2)} USD</span>
+          <button type="button" class="btn-primary" data-store-action="buy" data-pack-id="${pack.id}">Comprar con PayPal</button>
+        </div>
+      </div>`
+      )
+      .join('');
+  }
+
+  function buyPack(id) {
+    const pack = storePacks.find((p) => String(p.id) === String(id));
+    if (!pack) {
+      toast('Pack no encontrado', 'error');
+      return;
     }
+    if (!currentUser) {
+      showAuthGate(true);
+      toast('Iniciá sesión para comprar', 'error');
+      return;
+    }
+    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=amarootm@gmail.com&item_name=${encodeURIComponent(pack.name)}&amount=${pack.price}&currency_code=USD`;
+    api.openExternal(paypalUrl);
+    toast(`Redirigiendo a PayPal para abonar $${Number(pack.price).toFixed(2)} USD...`);
+  }
 
-    $('#packModal').hidden = true;
-    renderStore();
-    toast('Pack guardado con éxito.');
-  });
+  async function deletePack(id) {
+    if (!confirm('¿Eliminar este pack?')) return;
+    const res = await api.deletePack(Number(id));
+    if (!res.ok) {
+      toast(res.error || 'No se pudo eliminar', 'error');
+      return;
+    }
+    toast('Pack eliminado correctamente.');
+    await loadStore();
+  }
 
-  /* ───── Soporte / Tickets ───── */
+  function editPack(id) {
+    const pack = storePacks.find((p) => String(p.id) === String(id));
+    if (!pack) return;
+    $('#packEditId').value = pack.id;
+    $('#packNameInput').value = pack.name;
+    $('#packDescInput').value = pack.description || '';
+    $('#packPriceInput').value = pack.price;
+    $('#packIconSelect').value = pack.icon || 'shield';
+    if ($('#packModalTitle')) $('#packModalTitle').textContent = 'Editar Pack VIP';
+    $('#packModal').hidden = false;
+  }
+
+  function setupStore() {
+    $('#storeGrid')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-store-action]');
+      if (!btn) return;
+      e.preventDefault();
+      const action = btn.dataset.storeAction;
+      const id = btn.dataset.packId;
+      if (action === 'buy') buyPack(id);
+      else if (action === 'edit') editPack(id);
+      else if (action === 'delete') deletePack(id);
+    });
+
+    $('#openAddPackModal')?.addEventListener('click', () => {
+      $('#packEditId').value = '';
+      $('#packNameInput').value = '';
+      $('#packDescInput').value = '';
+      $('#packPriceInput').value = '';
+      $('#packIconSelect').value = 'shield';
+      if ($('#packModalTitle')) $('#packModalTitle').textContent = 'Crear Pack VIP';
+      $('#packModal').hidden = false;
+    });
+
+    $('#closePackModal')?.addEventListener('click', () => {
+      $('#packModal').hidden = true;
+    });
+    $('#packModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'packModal') $('#packModal').hidden = true;
+    });
+
+    $('#savePackBtn')?.addEventListener('click', async () => {
+      const editId = $('#packEditId').value;
+      const name = $('#packNameInput').value.trim();
+      const description = $('#packDescInput').value.trim();
+      const price = parseFloat($('#packPriceInput').value);
+      const icon = $('#packIconSelect').value;
+
+      if (!name || isNaN(price) || price < 0) {
+        toast('Completá los campos correctamente.', 'error');
+        return;
+      }
+
+      let res;
+      if (editId) {
+        res = await api.updatePack({ id: Number(editId), name, description, price, icon });
+      } else {
+        res = await api.createPack({ name, description, price, icon });
+      }
+      if (!res.ok) {
+        toast(res.error || 'Error al guardar', 'error');
+        return;
+      }
+      $('#packModal').hidden = true;
+      toast('Pack guardado con éxito.');
+      await loadStore();
+    });
+  }
+
+  /* ───── Soporte / Tickets (MySQL) ───── */
+
+  async function loadTickets() {
+    if (!currentUser) {
+      myTickets = [];
+      renderTickets();
+      return;
+    }
+    try {
+      const res = await api.listTickets();
+      if (!res || !res.ok) {
+        myTickets = [];
+        if (res?.error) toast(res.error, 'error');
+      } else {
+        myTickets = res.data || [];
+      }
+    } catch (err) {
+      console.error('loadTickets', err);
+      myTickets = [];
+    }
+    renderTickets();
+  }
 
   function renderTickets() {
     const list = $('#ticketsList');
     if (!list) return;
 
-    if (myTickets.length === 0) {
-      list.innerHTML = `<div class="card pad" style="text-align:center; color:var(--muted);">No tenés ningún ticket abierto.</div>`;
+    if (!currentUser) {
+      list.innerHTML = `<div class="card pad" style="text-align:center; color:var(--muted);">Iniciá sesión para ver y crear tickets.</div>`;
       return;
     }
 
-    list.innerHTML = myTickets.map(t => `
-      <div class="ticket-item">
+    if (myTickets.length === 0) {
+      list.innerHTML = `<div class="card pad" style="text-align:center; color:var(--muted);">No hay tickets para mostrar.</div>`;
+      return;
+    }
+
+    list.innerHTML = myTickets
+      .map((t) => {
+        const who = t.claimedName
+          ? ` · Reclamado por ${esc(t.claimedName)}`
+          : ' · Pendiente';
+        const author =
+          currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev') && t.authorName
+            ? ` · de ${esc(t.authorName)}`
+            : '';
+        return `
+      <div class="ticket-item" data-ticket-id="${t.id}">
         <div class="ticket-info">
-          <b>#${t.id} - ${esc(t.subject)}</b>
-          <span>Estado: <b class="ticket-status ${t.status === 'Cerrado' ? 'closed' : ''}">${esc(t.status)}</b> ${t.claimed_by ? '• Reclamado por Staff' : '• Pendiente'}</span>
+          <b>#${t.id} — ${esc(t.subject)}</b>
+          <span>Estado: <b class="ticket-status ${t.status === 'Cerrado' ? 'closed' : ''}">${esc(t.status)}</b>${who}${author}</span>
         </div>
-        <div style="display:flex; gap:6px;">
-          <button type="button" class="btn-primary sm" onclick="window.openTicketChat(${t.id})">Abrir Chat</button>
-          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'dev') && !t.claimed_by ? `
-            <button type="button" class="btn-ghost sm" onclick="window.claimTicket(${t.id})">Reclamar</button>
-          ` : ''}
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="btn-primary sm" data-ticket-action="chat" data-ticket-id="${t.id}">Abrir Chat</button>
+          ${
+            currentUser &&
+            (currentUser.role === 'admin' || currentUser.role === 'dev') &&
+            !t.claimedBy &&
+            t.status !== 'Cerrado'
+              ? `<button type="button" class="btn-ghost sm" data-ticket-action="claim" data-ticket-id="${t.id}">Reclamar</button>`
+              : ''
+          }
+          ${
+            t.status !== 'Cerrado'
+              ? `<button type="button" class="btn-ghost sm" data-ticket-action="close" data-ticket-id="${t.id}">Cerrar</button>`
+              : ''
+          }
         </div>
-      </div>
-    `).join('');
+      </div>`;
+      })
+      .join('');
   }
 
-  $('#openNewTicketModal')?.addEventListener('click', () => {
-    const openCount = myTickets.filter(t => t.status !== 'Cerrado').length;
-    if (openCount >= 3) {
-      toast('Límite alcanzado: No puedes tener más de 3 tickets abiertos simultáneamente.', 'error');
+  async function claimTicket(id) {
+    const res = await api.claimTicket(Number(id));
+    if (!res.ok) {
+      toast(res.error || 'No se pudo reclamar', 'error');
       return;
     }
-    $('#ticketModal').hidden = false;
-  });
+    toast(`Reclamaste el ticket #${id}.`);
+    await loadTickets();
+  }
 
-  $('#closeTicketModal')?.addEventListener('click', () => {
-    $('#ticketModal').hidden = true;
-  });
-
-  $('#submitTicketBtn')?.addEventListener('click', () => {
-    const subject = $('#ticketSubject').value.trim();
-    const message = $('#ticketMessage').value.trim();
-    if (!subject || !message) {
-      toast('Completá todos los campos.', 'error');
+  async function closeTicket(id) {
+    if (!confirm('¿Cerrar este ticket?')) return;
+    const res = await api.closeTicket(Number(id));
+    if (!res.ok) {
+      toast(res.error || 'No se pudo cerrar', 'error');
       return;
     }
-
-    myTickets.unshift({ id: Date.now(), subject, message, status: 'Abierto', claimed_by: null, messages: [{ sender: currentUser?.displayName || 'Usuario', text: message, media: null }] });
-    $('#ticketModal').hidden = true;
-    $('#ticketSubject').value = '';
-    $('#ticketMessage').value = '';
-    renderTickets();
-    toast('Ticket creado exitosamente.');
-  });
-
-  window.claimTicket = function(id) {
-    const ticket = myTickets.find(t => t.id === id);
-    if (ticket) {
-      ticket.claimed_by = currentUser.id;
-      ticket.status = 'En Proceso';
-      renderTickets();
-      toast(`Has reclamado el ticket #${id}.`);
+    toast(`Ticket #${id} cerrado.`);
+    if (activeChatTicketId === Number(id)) {
+      $('#ticketChatModal').hidden = true;
+      activeChatTicketId = null;
     }
-  };
+    await loadTickets();
+  }
 
-  window.openTicketChat = function(ticketId) {
-    activeChatTicketId = ticketId;
-    $('#chatModalTitle').textContent = `Chat de Ticket #${ticketId}`;
+  async function openTicketChat(ticketId) {
+    const id = Number(ticketId);
+    const ticket = myTickets.find((t) => t.id === id);
+    if (!ticket) {
+      toast('Ticket no encontrado', 'error');
+      return;
+    }
+    activeChatTicketId = id;
+    pendingTicketMedia = null;
+    $('#chatModalTitle').textContent = `Chat de Ticket #${id} — ${ticket.subject}`;
     $('#ticketChatModal').hidden = false;
-    loadChatMessages(ticketId);
-  };
+    if ($('#chatInputMessage')) $('#chatInputMessage').value = '';
+    await loadChatMessages(id);
+  }
 
-  $('#closeChatModal')?.addEventListener('click', () => {
-    $('#ticketChatModal').hidden = true;
-  });
-
-  function loadChatMessages(ticketId) {
-    const ticket = myTickets.find(t => t.id === ticketId);
+  async function loadChatMessages(ticketId) {
     const container = $('#chatMessagesContainer');
     if (!container) return;
+    container.innerHTML = `<div class="muted" style="text-align:center;padding:12px;">Cargando…</div>`;
 
-    const msgs = ticket?.messages || [{ sender: 'Soporte', text: 'Hola, ¿en qué podemos ayudarte con este ticket?', media: null }];
-    container.innerHTML = msgs.map(m => `
-      <div style="background:${m.sender === 'Tú' ? 'rgba(37,99,235,0.15)' : 'rgba(255,255,255,0.03)'}; padding:8px 12px; border-radius:6px; font-size:12px; align-self:${m.sender === 'Tú' ? 'flex-end' : 'flex-start'}; max-width:85%;">
-        <b>${esc(m.sender)}:</b> ${esc(m.text || '')}
-        ${m.media ? m.media : ''}
-      </div>
-    `).join('');
+    const res = await api.getTicketMessages(Number(ticketId));
+    if (!res.ok) {
+      container.innerHTML = `<div class="muted" style="text-align:center;padding:12px;">${esc(res.error || 'Error')}</div>`;
+      return;
+    }
+
+    const msgs = res.data || [];
+    if (!msgs.length) {
+      container.innerHTML = `<div class="muted" style="text-align:center;padding:12px;">Sin mensajes todavía.</div>`;
+      return;
+    }
+
+    container.innerHTML = msgs
+      .map((m) => {
+        const name = m.author?.displayName || m.author?.username || '?';
+        const mine = !!m.isMine;
+        let media = '';
+        if (m.mediaType === 'image' && m.mediaUrl) {
+          media = `<img src="${esc(m.mediaUrl)}" alt="" style="max-width:100%;max-height:200px;border-radius:6px;margin-top:6px;">`;
+        } else if (m.mediaType === 'video' && m.mediaUrl) {
+          media = `<video src="${esc(m.mediaUrl)}" controls style="max-width:100%;max-height:200px;border-radius:6px;margin-top:6px;"></video>`;
+        } else if (m.mediaType === 'file' && m.mediaUrl) {
+          media = `<div style="font-size:11px;color:var(--accent);margin-top:4px;">📎 ${esc(m.mediaName || 'Archivo')}</div>`;
+        }
+        return `
+      <div class="chat-bubble ${mine ? 'mine' : 'theirs'}">
+        <b>${esc(name)}${m.author?.role && ['admin','dev'].includes(m.author.role) ? ' · staff' : ''}</b>
+        <div>${esc(m.content || '')}</div>
+        ${media}
+      </div>`;
+      })
+      .join('');
     container.scrollTop = container.scrollHeight;
   }
 
-  $('#attachMediaBtn')?.addEventListener('click', () => {
-    $('#chatMediaFile').click();
-  });
+  function setupTickets() {
+    $('#ticketsList')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-ticket-action]');
+      if (!btn) return;
+      e.preventDefault();
+      const action = btn.dataset.ticketAction;
+      const id = btn.dataset.ticketId;
+      if (action === 'chat') openTicketChat(id);
+      else if (action === 'claim') claimTicket(id);
+      else if (action === 'close') closeTicket(id);
+    });
 
-  $('#sendChatMessageBtn')?.addEventListener('click', () => {
-    const text = $('#chatInputMessage').value.trim();
-    const fileInput = $('#chatMediaFile');
-    if (!text && fileInput.files.length === 0) return;
-
-    let mediaHtml = null;
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      const fileUrl = URL.createObjectURL(file);
-      if (file.type.startsWith('image/')) {
-        mediaHtml = `<img src="${fileUrl}" style="max-width:100%; max-height:200px; border-radius:4px; margin-top:4px;">`;
-      } else if (file.type.startsWith('video/')) {
-        mediaHtml = `<video src="${fileUrl}" controls style="max-width:100%; max-height:200px; border-radius:4px; margin-top:4px;"></video>`;
-      } else {
-        mediaHtml = `<div style="font-size:11px; color:var(--accent);">Archivo adjunto: ${file.name}</div>`;
+    $('#openNewTicketModal')?.addEventListener('click', () => {
+      if (!currentUser) {
+        showAuthGate(true);
+        toast('Iniciá sesión para abrir un ticket', 'error');
+        return;
       }
+      $('#ticketSubject').value = '';
+      $('#ticketMessage').value = '';
+      $('#ticketModal').hidden = false;
+    });
+
+    $('#closeTicketModal')?.addEventListener('click', () => {
+      $('#ticketModal').hidden = true;
+    });
+    $('#ticketModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'ticketModal') $('#ticketModal').hidden = true;
+    });
+
+    $('#submitTicketBtn')?.addEventListener('click', async () => {
+      if (!currentUser) {
+        toast('Iniciá sesión primero', 'error');
+        return;
+      }
+      const subject = $('#ticketSubject').value.trim();
+      const message = $('#ticketMessage').value.trim();
+      if (!subject || !message) {
+        toast('Completá todos los campos.', 'error');
+        return;
+      }
+      const res = await api.createTicket({ subject, message });
+      if (!res.ok) {
+        toast(res.error || 'No se pudo crear', 'error');
+        return;
+      }
+      $('#ticketModal').hidden = true;
+      toast('Ticket creado exitosamente.');
+      await loadTickets();
+    });
+
+    $('#closeChatModal')?.addEventListener('click', () => {
+      $('#ticketChatModal').hidden = true;
+      activeChatTicketId = null;
+      pendingTicketMedia = null;
+    });
+    $('#ticketChatModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'ticketChatModal') {
+        $('#ticketChatModal').hidden = true;
+        activeChatTicketId = null;
+        pendingTicketMedia = null;
+      }
+    });
+
+    $('#attachMediaBtn')?.addEventListener('click', async () => {
+      if (!api.pickTicketMedia) {
+        toast('Adjuntos no disponibles', 'error');
+        return;
+      }
+      const res = await api.pickTicketMedia();
+      if (!res || res.cancelled) return;
+      if (!res.ok) {
+        toast(res.error || 'No se pudo adjuntar', 'error');
+        return;
+      }
+      pendingTicketMedia = {
+        mediaType: res.mediaType,
+        mediaUrl: res.mediaUrl,
+        mediaName: res.mediaName,
+        clientUrl: res.clientUrl,
+      };
+      toast(`Adjunto listo: ${res.mediaName}`);
+    });
+
+    $('#sendChatMessageBtn')?.addEventListener('click', sendChatMessage);
+    $('#chatInputMessage')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+  }
+
+  async function sendChatMessage() {
+    if (activeChatTicketId == null) return;
+    const text = $('#chatInputMessage')?.value.trim() || '';
+    if (!text && !pendingTicketMedia) return;
+
+    const payload = {
+      id: activeChatTicketId,
+      content: text,
+      mediaType: pendingTicketMedia?.mediaType || 'none',
+      mediaUrl: pendingTicketMedia?.mediaUrl || null,
+      mediaName: pendingTicketMedia?.mediaName || null,
+    };
+
+    const res = await api.sendTicketMessage(payload);
+    if (!res.ok) {
+      toast(res.error || 'No se pudo enviar', 'error');
+      return;
     }
+    if ($('#chatInputMessage')) $('#chatInputMessage').value = '';
+    pendingTicketMedia = null;
+    await loadChatMessages(activeChatTicketId);
+    await loadTickets();
+  }
 
-    const ticket = myTickets.find(t => t.id === activeChatTicketId);
-    if (ticket) {
-      if (!ticket.messages) ticket.messages = [];
-      ticket.messages.push({ sender: 'Tú', text, media: mediaHtml });
-    }
+  /* ───── Perfil (estilo Discord) ───── */
 
-    $('#chatInputMessage').value = '';
-    fileInput.value = '';
-    loadChatMessages(activeChatTicketId);
-    toast('Mensaje enviado.');
-  });
+  function setupProfile() {
+    $('#profileAvatarWrap')?.addEventListener('click', async () => {
+      if (!currentUser) {
+        showAuthGate(true);
+        return;
+      }
+      if (!api.setAvatar) {
+        // fallback file input
+        $('#profileAvatarFile')?.click();
+        return;
+      }
+      const res = await api.setAvatar();
+      if (!res || res.cancelled) return;
+      if (!res.ok) {
+        toast(res.error || 'No se pudo guardar el avatar', 'error');
+        return;
+      }
+      currentUser = res.user;
+      updateUserUI();
+      initProfileData();
+      toast('Avatar actualizado');
+    });
 
-  /* ───── Perfil y Cambio de Apodo Único ───── */
+    $('#profileAvatarFile')?.addEventListener('change', async (e) => {
+      // legacy local preview only if API missing
+      const file = e.target.files?.[0];
+      if (!file) return;
+      toast('Usá el lápiz del avatar (selector nativo) para guardar en el servidor.', 'error');
+    });
+
+    $('#profileBio')?.addEventListener('input', () => {
+      const n = ($('#profileBio').value || '').length;
+      if ($('#profileBioCount')) $('#profileBioCount').textContent = String(n);
+    });
+
+    $('#profileDisplayName')?.addEventListener('input', () => {
+      const v = $('#profileDisplayName').value.trim() || currentUser?.username || 'Usuario';
+      if ($('#profileDisplayLabel')) $('#profileDisplayLabel').textContent = v;
+    });
+
+    $('#saveProfileBtn')?.addEventListener('click', async () => {
+      if (!currentUser) {
+        showAuthGate(true);
+        return;
+      }
+      const displayName = $('#profileDisplayName')?.value.trim() || '';
+      const bio = $('#profileBio')?.value || '';
+      const password = $('#profileCurrentPassword')?.value || '';
+
+      if (!displayName) {
+        toast('El apodo no puede estar vacío.', 'error');
+        return;
+      }
+
+      const res = await api.updateProfile({
+        displayName,
+        bio,
+        currentPassword: password,
+      });
+      if (!res.ok) {
+        toast(res.error || 'No se pudo guardar', 'error');
+        return;
+      }
+      currentUser = res.user;
+      if ($('#profileCurrentPassword')) $('#profileCurrentPassword').value = '';
+      updateUserUI();
+      initProfileData();
+      toast('Perfil guardado');
+    });
+  }
 
   function initProfileData() {
     if (!currentUser) return;
-    const usernameInput = $('#profileUsername');
-    const displayInput = $('#profileDisplayName');
-    const passBox = $('#passwordChangeBox');
-    
-    if (usernameInput) usernameInput.value = currentUser.username || '';
-    if (displayInput) displayInput.value = currentUser.displayName || currentUser.username || '';
+    const name = currentUser.displayName || currentUser.username || 'Usuario';
+    const role =
+      currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'dev' ? 'Dev' : 'Miembro';
 
-    if (currentUser.usernameChanged) {
-      if (displayInput) displayInput.disabled = true;
-      if (passBox) passBox.style.display = 'none';
+    if ($('#profileUsername')) $('#profileUsername').value = currentUser.username || '';
+    if ($('#profileUsernameLabel')) $('#profileUsernameLabel').textContent = `@${currentUser.username || ''}`;
+    if ($('#profileDisplayName')) $('#profileDisplayName').value = name;
+    if ($('#profileDisplayLabel')) $('#profileDisplayLabel').textContent = name;
+    if ($('#profileRolePill')) $('#profileRolePill').textContent = role;
+    if ($('#profileBio')) {
+      $('#profileBio').value = currentUser.bio || '';
+      if ($('#profileBioCount')) $('#profileBioCount').textContent = String((currentUser.bio || '').length);
+    }
+
+    const preview = $('#profileAvatarPreview');
+    if (preview) {
+      if (currentUser.avatarUrl) {
+        preview.innerHTML = `<img src="${esc(currentUser.avatarUrl)}" alt="">`;
+      } else {
+        preview.innerHTML = `<span id="profileAvatarInitial">${esc(initials(name))}</span>`;
+        preview.style.background = avatarColor(name);
+      }
+    }
+
+    // banner follows accent
+    const banner = $('#profileBanner');
+    if (banner) {
+      banner.style.background = `linear-gradient(135deg, color-mix(in srgb, var(--accent) 60%, #111) 0%, #0b0f17 100%)`;
     }
   }
 
-  $('#profileAvatarFile')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const base64 = evt.target.result;
-        const preview = $('#profileAvatarPreview');
-        if (preview) preview.innerHTML = `<img src="${base64}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;">`;
-        if (currentUser) currentUser.avatarUrl = base64;
-      };
-      reader.readAsDataURL(file);
+  /* ───── Anuncios no leídos ───── */
+
+  function getLastReadTs() {
+    return Number(SET?.lastAnnouncementRead || 0) || 0;
+  }
+
+  async function markAnnouncementsRead() {
+    const ts = Date.now();
+    try {
+      SET = await api.saveSettings({ ...SET, lastAnnouncementRead: ts });
+    } catch {
+      if (SET) SET.lastAnnouncementRead = ts;
     }
-  });
+    updateNewsBadge(0);
+  }
 
-  $('#saveProfileBtn')?.addEventListener('click', () => {
-    const newDisplayName = $('#profileDisplayName').value.trim();
-    const password = $('#profileCurrentPassword')?.value.trim() || '';
-
-    if (!newDisplayName) {
-      toast('El apodo no puede estar vacío.', 'error');
-      return;
+  function updateNewsBadge(count) {
+    const badge = $('#newsBadge');
+    if (!badge) return;
+    const n = Number(count) || 0;
+    if (n <= 0) {
+      badge.hidden = true;
+      badge.textContent = '0';
+    } else {
+      badge.hidden = false;
+      badge.textContent = n > 99 ? '99+' : String(n);
     }
+  }
 
-    if (currentUser && !currentUser.usernameChanged) {
-      if (!password) {
-        toast('Debes ingresar tu contraseña actual para confirmar el cambio de apodo.', 'error');
-        return;
-      }
-      currentUser.usernameChanged = true;
-      currentUser.displayName = newDisplayName;
-      const displayInput = $('#profileDisplayName');
-      const passBox = $('#passwordChangeBox');
-      if (displayInput) displayInput.disabled = true;
-      if (passBox) passBox.style.display = 'none';
-    } else if (currentUser) {
-      currentUser.displayName = newDisplayName;
-    }
+  function countUnread(list) {
+    const last = getLastReadTs();
+    if (!last) return (list || []).length;
+    return (list || []).filter((a) => {
+      const t = new Date(a.createdAt).getTime();
+      return Number.isFinite(t) && t > last;
+    }).length;
+  }
 
-    updateUserUI();
-    toast('Perfil de sobreviviente actualizado correctamente.');
-  });
-
-  /* ───── Announcements (social feed) ───── */
+    /* ───── Announcements (social feed) ───── */
 
   const EMOJI_PICKER = ['👍','❤️','🔥','😂','😮','😢','👏','🎉','⚔️','🛡️','💀','🇦🇷','❄️','🎯','💪','🙌','👀','✅'];
 
@@ -865,7 +1396,7 @@
     });
   }
 
-  function renderAnnouncementCard(ann) {
+  function renderAnnouncementCard(ann, isUnread = false) {
     const authorName = ann.author?.displayName || ann.author?.username || '—';
     const sections = (ann.sections || [])
       .map((s) => `<span class="ann-section">${esc(s)}</span>`)
@@ -879,36 +1410,42 @@
           <button type="button" class="btn-ghost sm danger" data-del="${ann.id}">Eliminar</button>
         </div>`
       : '';
+    const avatar = ann.author?.avatarUrl
+      ? `<div class="avatar has-img"><img src="${esc(ann.author.avatarUrl)}" alt=""></div>`
+      : `<div class="avatar" style="background:${avatarColor(authorName)}">${esc(initials(authorName))}</div>`;
+    const body = esc(ann.content).replace(/\n/g, '<br>');
 
     return `
-      <article class="announcement-card${ann.pinned ? ' pinned' : ''}" data-ann="${ann.id}">
-        <div class="feed-card-top" style="display:flex; align-items:center; gap:10px;">
-          <div class="avatar" style="width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;background:${avatarColor(authorName)}">${esc(initials(authorName))}</div>
-          <div class="feed-meta" style="flex:1;">
-            <div class="feed-author" style="display:flex; align-items:center; gap:6px;">
+      <article class="announcement-card${ann.pinned ? ' pinned' : ''}${isUnread ? ' unread' : ''}" data-ann="${ann.id}">
+        <div class="feed-card-top">
+          ${avatar}
+          <div class="feed-meta">
+            <div class="feed-author">
               <b>${esc(authorName)}</b>
               ${staffBadge}
               ${ann.pinned ? '<span class="ann-pin">📌</span>' : ''}
             </div>
-            <div class="feed-sub" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:11.5px; color:var(--muted);">
-              <span class="announcement-badge">${esc(ann.category)}</span>
+            <div class="feed-sub">
+              <span class="announcement-badge">${esc(ann.category || 'Novedad')}</span>
               ${sections}
               <span class="announcement-date">· ${esc(formatDate(ann.createdAt))}</span>
             </div>
           </div>
           ${actions}
         </div>
-        <h3 class="feed-title" style="margin-top:6px; font-size:15px; font-weight:700;">${esc(ann.title)}</h3>
-        <p class="ann-body" style="font-size:12.5px; line-height:1.4; color:var(--text);">${esc(ann.content).replace(/\n/g, '<br>')}</p>
+        <h3 class="feed-title">${esc(ann.title)}</h3>
+        <p class="ann-body">${body}</p>
         ${mediaHtml(ann)}
         ${reactionsHtml(ann)}
-        <div class="feed-actions" style="display:flex; gap:12px; margin-top:4px;">
-          <button type="button" class="feed-action" data-toggle-comments="${ann.id}" style="background:none; border:0; color:var(--text-2); cursor:pointer; font-size:12px;">
-            💬 <span>${ann.commentCount || 0}</span> comentarios
+        <div class="feed-actions">
+          <button type="button" class="comments-toggle" data-toggle-comments="${ann.id}">
+            <span class="chev">▾</span> 💬 <span>${ann.commentCount || 0}</span> comentarios
           </button>
-          <button type="button" class="feed-action" data-open-emoji="${ann.id}" style="background:none; border:0; color:var(--text-2); cursor:pointer; font-size:12px;">😊 Reaccionar</button>
+          <button type="button" class="feed-action" data-open-emoji="${ann.id}">😊 Reaccionar</button>
         </div>
-        <div class="ann-comments" id="comments-${ann.id}" hidden style="margin-top:8px; border-top:1px solid var(--border); padding-top:8px;"></div>
+        <div class="ann-comments" id="comments-${ann.id}" hidden>
+          <div class="ann-comments-inner"></div>
+        </div>
       </article>`;
   }
 
@@ -934,8 +1471,24 @@
       </div>`;
       return;
     }
+    const unread = countUnread(res.data);
+    const onNews = $('#view-news')?.classList.contains('active');
+    if (onNews) {
+      await markAnnouncementsRead();
+    } else {
+      updateNewsBadge(unread);
+    }
+
     const keepOpen = new Set(expandedComments);
-    grid.innerHTML = res.data.map(renderAnnouncementCard).join('');
+    grid.innerHTML = res.data
+      .map((ann) => {
+        const t = new Date(ann.createdAt).getTime();
+        const isUnread = getLastReadTs() && t > getLastReadTs();
+        // when just marked read, no unread class
+        const markUnread = !onNews && isUnread;
+        return renderAnnouncementCard(ann, markUnread);
+      })
+      .join('');
     bindAnnouncementEvents(grid);
     for (const id of keepOpen) {
       const box = $(`#comments-${id}`);
@@ -1011,54 +1564,78 @@
     return walk(null, 0);
   }
 
+  function avatarHtml(name, url, sizeClass) {
+    const cls = sizeClass || '';
+    if (url) {
+      return `<div class="avatar ${cls} has-img"><img src="${esc(url)}" alt=""></div>`;
+    }
+    return `<div class="avatar ${cls}" style="background:${avatarColor(name)}">${esc(initials(name))}</div>`;
+  }
+
   function renderCommentNode(c, annId) {
-    const name = c.author.displayName || c.author.username;
+    const name = c.author?.displayName || c.author?.username || '?';
+    const avatarUrl = c.author?.avatarUrl || null;
     const kids = (c.children || []).map((ch) => renderCommentNode(ch, annId)).join('');
+    const depth = Math.min(c.depth || 0, 4);
     return `
-      <div class="comment" data-cmt="${c.id}" style="margin-left:${Math.min(c.depth || 0, 4) * 12}px; margin-top:6px;">
-        <div style="display:flex; gap:8px; align-items:flex-start;">
-          <div class="avatar sm" style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;background:${avatarColor(name)}">${esc(initials(name))}</div>
-          <div style="flex:1; background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:6px;">
-            <div style="display:flex; justify-content:space-between; font-size:11px;">
-              <b>${esc(name)}</b>
-              <span class="muted">${esc(formatDate(c.createdAt))}</span>
-            </div>
-            <p style="font-size:12px; margin-top:2px;">${esc(c.content)}</p>
+      <div class="comment" data-cmt="${c.id}" style="--depth:${depth}">
+        ${avatarHtml(name, avatarUrl, 'sm')}
+        <div class="comment-body">
+          <div class="comment-head">
+            <b>${esc(name)}</b>
+            <span class="muted">${esc(formatDate(c.createdAt))}</span>
           </div>
+          <p class="comment-text">${esc(c.content)}</p>
+          ${kids ? `<div class="comment-children">${kids}</div>` : ''}
         </div>
-        ${kids ? `<div style="margin-top:4px;">${kids}</div>` : ''}
       </div>`;
   }
 
   async function toggleComments(annId) {
     const box = $(`#comments-${annId}`);
+    const toggleBtn = document.querySelector(`[data-toggle-comments="${annId}"]`);
     if (!box) return;
-    if (!box.hidden && expandedComments.has(annId)) {
-      box.hidden = true;
+
+    if (box.classList.contains('open') && expandedComments.has(annId)) {
+      box.classList.add('closing');
+      if (toggleBtn) toggleBtn.classList.remove('expanded');
       expandedComments.delete(annId);
+      setTimeout(() => {
+        box.classList.remove('open', 'closing');
+        box.hidden = true;
+        box.innerHTML = '<div class="ann-comments-inner"></div>';
+      }, 200);
       return;
     }
+
     expandedComments.add(annId);
     box.hidden = false;
-    box.innerHTML = `<p class="muted pad-sm">Cargando comentarios…</p>`;
+    box.classList.remove('closing');
+    box.classList.add('open');
+    if (toggleBtn) toggleBtn.classList.add('expanded');
+    box.innerHTML = `<div class="ann-comments-inner"><p class="muted pad-sm">Cargando comentarios…</p></div>`;
+
     const res = await api.getComments(annId);
     if (!res.ok) {
-      box.innerHTML = `<p class="muted pad-sm">${esc(res.error || 'Error')}</p>`;
+      box.innerHTML = `<div class="ann-comments-inner"><p class="muted pad-sm">${esc(res.error || 'Error')}</p></div>`;
       return;
     }
+    if (!expandedComments.has(annId)) return;
+
     const tree = buildCommentTree(res.data || []);
     const list = tree.length
       ? tree.map((c) => renderCommentNode(c, annId)).join('')
-      : `<p class="muted pad-sm" style="font-size:11.5px; color:var(--muted);">Sé el primero en comentar.</p>`;
+      : `<p class="muted pad-sm">Sé el primero en comentar.</p>`;
 
-    box.innerHTML = `
-      <div class="comment-list" style="display:flex; flex-direction:column; gap:6px;">${list}</div>
-      <div class="comment-composer" style="display:flex; gap:6px; margin-top:8px;">
-        <input class="input" id="cmt-input-${annId}" maxlength="1000" placeholder="Escribí un comentario…" style="flex:1;">
+    box.innerHTML = `<div class="ann-comments-inner">
+      <div class="comment-list">${list}</div>
+      <div class="comment-composer">
+        <input class="input" id="cmt-input-${annId}" maxlength="1000" placeholder="Escribí un comentario…">
         <button type="button" class="btn-primary sm" data-send-cmt="${annId}">Publicar</button>
-      </div>`;
+      </div>
+    </div>`;
 
-    box.querySelector(`[data-send-cmt="${annId}"]`)?.addEventListener('click', async () => {
+    const send = async () => {
       const input = $(`#cmt-input-${annId}`);
       const text = input?.value.trim();
       if (!text) return;
@@ -1066,8 +1643,16 @@
       if (!r.ok) toast(r.error || 'Error', 'error');
       else {
         expandedComments.delete(annId);
+        box.classList.remove('open');
         await toggleComments(annId);
         await loadAnnouncements();
+      }
+    };
+    box.querySelector(`[data-send-cmt="${annId}"]`)?.addEventListener('click', send);
+    $(`#cmt-input-${annId}`)?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        send();
       }
     });
   }
@@ -1188,6 +1773,9 @@
     setupIcons();
     setupNav();
     setupAuthGate();
+    setupTitlebarMenu();
+    setupDevPanel();
+    setupProfile();
     setupPostModal();
 
     if (!api) {
@@ -1199,15 +1787,18 @@
     CFG = boot.config;
     SET = boot.settings;
     currentUser = boot.user || null;
+    applyAccent(SET?.accentColor || '#2563eb');
     if ($('#appVer')) $('#appVer').textContent = `v${boot.version}`;
 
     applyBranding();
     renderRules();
     renderNews();
-    renderStore();
-    renderTickets();
     setupPlay();
     setupSettings();
+    setupStore();
+    setupTickets();
+    await loadStore();
+    await loadTickets();
     updateUserUI();
 
     if (!currentUser) {

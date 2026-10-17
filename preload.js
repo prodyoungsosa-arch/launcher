@@ -27,6 +27,23 @@ contextBridge.exposeInMainWorld('api', {
   updateComment: (id, content) => ipcRenderer.invoke('announcements:commentUpdate', { id, content }),
   deleteComment: (id) => ipcRenderer.invoke('announcements:commentDelete', { id }),
   pickMedia: (kind) => ipcRenderer.invoke('media:pick', { kind }),
+  updateProfile: (data) => ipcRenderer.invoke('profile:update', data),
+  setAvatar: () => ipcRenderer.invoke('profile:setAvatar'),
+
+  // Tienda
+  listPacks: () => ipcRenderer.invoke('store:list'),
+  createPack: (data) => ipcRenderer.invoke('store:create', data),
+  updatePack: (data) => ipcRenderer.invoke('store:update', data),
+  deletePack: (id) => ipcRenderer.invoke('store:delete', { id }),
+
+  // Tickets
+  listTickets: () => ipcRenderer.invoke('tickets:list'),
+  createTicket: (data) => ipcRenderer.invoke('tickets:create', data),
+  claimTicket: (id) => ipcRenderer.invoke('tickets:claim', { id }),
+  closeTicket: (id) => ipcRenderer.invoke('tickets:close', { id }),
+  getTicketMessages: (id) => ipcRenderer.invoke('tickets:messages', { id }),
+  sendTicketMessage: (data) => ipcRenderer.invoke('tickets:sendMessage', data),
+  pickTicketMedia: () => ipcRenderer.invoke('tickets:pickMedia'),
 
   minimize: () => ipcRenderer.send('win:minimize'),
   maximize: () => ipcRenderer.send('win:maximize'),

@@ -1,8 +1,8 @@
 -- Malvinas 1982 Launcher — esquema completo
--- Ejecutar en MySQL: mysql -u root malvinas-db < sql/schema.sql
+-- Ejecutar en MySQL: mysql -u root malvinas < sql/schema.sql
 
-CREATE DATABASE IF NOT EXISTS `malvinas-db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `malvinas-db`;
+CREATE DATABASE IF NOT EXISTS `malvinas` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `malvinas`;
 
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   role ENUM('user', 'admin', 'dev') NOT NULL DEFAULT 'user',
   display_name VARCHAR(48) NULL,
   avatar_url VARCHAR(512) NULL,
+  bio VARCHAR(500) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -61,6 +62,58 @@ CREATE TABLE IF NOT EXISTS announcement_comments (
   CONSTRAINT fk_cmt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_cmt_ann (announcement_id, created_at)
 ) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS store_packs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  description TEXT NULL,
+  price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  icon VARCHAR(32) NOT NULL DEFAULT 'shield',
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_by INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_pack_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_pack_active (active, id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS tickets (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  subject VARCHAR(200) NOT NULL,
+  status ENUM('Abierto','En Proceso','Cerrado') NOT NULL DEFAULT 'Abierto',
+  claimed_by INT UNSIGNED NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ticket_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ticket_claim FOREIGN KEY (claimed_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_ticket_user (user_id, status),
+  INDEX idx_ticket_status (status, updated_at DESC)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS ticket_messages (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ticket_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  content VARCHAR(2000) NOT NULL DEFAULT '',
+  media_type ENUM('none','image','video','file') NOT NULL DEFAULT 'none',
+  media_url VARCHAR(512) NULL,
+  media_name VARCHAR(255) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tmsg_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tmsg_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_tmsg_ticket (ticket_id, created_at)
+) ENGINE=InnoDB;
+
+-- Packs de ejemplo (solo si la tabla está vacía)
+INSERT INTO store_packs (name, description, price, icon)
+SELECT * FROM (
+  SELECT 'Pack Soldado Raso' AS name, 'Arma secundaria, 3 cargadores y kit médico básico.' AS description, 5.00 AS price, 'shield' AS icon
+  UNION ALL SELECT 'Pack Comando Táctico', 'Fusil de asalto, chaleco nivel 3 y brújula militar.', 12.50, 'lock'
+  UNION ALL SELECT 'Membresía VIP Mensual', 'Acceso prioritario al servidor, kit VIP diario y color de chat exclusivo.', 20.00, 'star'
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM store_packs LIMIT 1);
 
 -- Primer admin (password: Admin123!). Cambiá la contraseña después.
 -- Hash bcrypt de "Admin123!" (cost 10):
